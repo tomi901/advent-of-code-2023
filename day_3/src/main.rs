@@ -1,9 +1,15 @@
-use std::{io::{stdin, Lines, BufRead, StdinLock}, cmp::{max, min}};
+use std::{io::{stdin, Lines, BufRead, StdinLock}, cmp::{max, min}, collections::{HashMap, hash_map::Entry}};
 
 struct CharMap {
     chars: Vec<char>,
     width: usize,
     height: usize,
+}
+
+#[derive(Debug)]
+struct GearRatio {
+    total: usize,
+    count: usize,
 }
 
 impl CharMap {
@@ -32,20 +38,20 @@ impl CharMap {
         self.chars[x + (y * self.width)]
     }
 
-    pub fn check_special_chars(&self, from: (usize, usize), to: (usize, usize)) -> bool {
+    pub fn check_gear_positions(&self, from: (usize, usize), to: (usize, usize)) -> Vec<(usize, usize)> {
         let from_clamped = (max(from.0, 0), max(from.1, 0));
         let to_clamped = (min(to.0, self.width), min(to.1, self.height));
 
+        let mut gears_positions = Vec::new();
         for x in (from_clamped.0)..=(to_clamped.0) {
             for y in (from_clamped.1)..=(to_clamped.1) {
                 let ch = self.get_char(x, y);
-                if ch != '.' && !ch.is_numeric() {
-                    // println!("Found {ch}");
-                    return true;
+                if ch == '*' {
+                    gears_positions.push((x, y));
                 }
             }
         }
-        false
+        gears_positions
     }
 }
 
@@ -54,7 +60,8 @@ fn main() {
     let mut cur_number_str = String::default();
     let mut cur_range = 0..0;
 
-    let mut sum = 0;
+    let mut gear_ratios: HashMap<(usize, usize), GearRatio> = HashMap::new();
+
     for (line_index, line) in map.lines().enumerate() {
         for (ch_index, ch) in line.iter().enumerate() {
             if ch.is_numeric() {
@@ -64,29 +71,41 @@ fn main() {
                     cur_range = cur_range.start..(ch_index + 1)
                 }
                 cur_number_str.push(*ch);
-            } else if !cur_number_str.is_empty() {
+            }
+            
+            if !cur_number_str.is_empty() && (!ch.is_numeric() || (ch_index + 1) >= line.len()) {
                 let from = (
                     if cur_range.start > 0 { cur_range.start - 1 } else { 0 },
                     if line_index > 0 { line_index - 1 } else { 0 });
                 let to = (cur_range.end, line_index + 1);
-                if map.check_special_chars(from, to) {
-                    println!("{}: ({from:?}/{to:?}) => {cur_number_str}", line_index + 1);
-                    sum += cur_number_str.parse::<usize>().unwrap();
-                }
+
+                let gear_positions = map.check_gear_positions(from, to);
+                let num = cur_number_str.parse::<usize>().unwrap();
                 cur_number_str.clear();
+
+                for pos in &gear_positions {
+                    println!("{line_index} {ch_index} {} {pos:?} -> {num}", &gear_positions.len());
+                    match gear_ratios.entry(*pos) {
+                        Entry::Occupied(o) => {
+                            let entry = o.into_mut();
+                            entry.count += 1;
+                            entry.total *= num;
+                        },
+                        Entry::Vacant(v) => {
+                            v.insert(GearRatio { total: num, count: 1 });
+                        },
+                    }
+                }
             }
         }
-
-        let from = (
-            if cur_range.start > 0 { cur_range.start - 1 } else { 0 },
-            if line_index > 0 { line_index - 1 } else { 0 });
-        let to = (cur_range.end, line_index + 1);
-        if !cur_number_str.is_empty() && map.check_special_chars(from, to) {
-            println!("{}: ({from:?}/{to:?}) => {cur_number_str}", line_index + 1);
-            sum += cur_number_str.parse::<usize>().unwrap();
-        }
-        cur_number_str.clear();
     }
 
+    let mut sum = 0;
+    for ratio in gear_ratios.iter().filter(|kvp| kvp.1.count > 1) {
+        println!("{ratio:?}");
+        sum += ratio.1.total;
+    }
+
+    // println!("{:?}", gear_ratios);
     println!("{}", sum);
 }
