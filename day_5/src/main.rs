@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::ops::Range;
 use std::io::{stdin, BufRead};
 
@@ -9,9 +10,8 @@ fn main() {
     let maps = create_maps(&mut stdin().lock());
     // println!("Maps: {:#?}", maps);
 
-    let result = transform_seeds(&seeds, maps);
+    let result = get_lowest_value(&seeds, &maps);
     println!("Result: {:?}", result);
-    println!("Lowest: {}", result.iter().min().expect("No min found."));
 }
 
 fn get_seeds(input: impl BufRead) -> Vec<Range<isize>> {
@@ -24,7 +24,7 @@ fn get_seeds(input: impl BufRead) -> Vec<Range<isize>> {
     while let Some(num_start) = seed_values_iter.next() {
         let length = seed_values_iter.next().expect("No length defined for range");
         let range = num_start..(num_start + length);
-        println!("Adding seed range {:?}", range);
+        // println!("Adding seed range {:?}", range);
         seeds.push(range);
     }
     seeds
@@ -58,13 +58,28 @@ fn create_map(input: &mut impl BufRead) -> TransformMap {
     TransformMap::new(ranges)
 }
 
-fn transform_seeds(seeds: &Vec<isize>, transform_maps: Vec<TransformMap>) -> Vec<isize> {
-    let mut transformed = seeds.clone();
-    for (i, map) in transform_maps.iter().enumerate() {
-        println!("Processing map [{}/{}]", i + 1, transform_maps.len());
-        map.transform_many(&mut transformed);
+fn get_lowest_value(seeds: &Vec<Range<isize>>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
+    let mut cur_min = None;
+    for seed_range in seeds.clone() {
+        println!("Testing seed range {:?} ({} length)", seed_range, seed_range.len());
+        let min_found = seed_range.map(|seed| process_value(seed, &transform_maps)).min().unwrap();
+        if let Some(some_min) = cur_min {
+            cur_min = Some(min(min_found, some_min));
+        } else {
+            cur_min = Some(min_found);
+        }
     }
-    transformed
+    cur_min
+    /*
+    seeds.iter()
+        .flat_map(|r| r.clone().into_iter())
+        .map(|seed| process_value(seed, &transform_maps))
+        .min()
+    */
+}
+
+fn process_value(seed: isize, transform_maps: &Vec<TransformMap>) -> isize {
+    transform_maps.iter().fold(seed, |s, t| t.transform(s))
 }
 
 #[derive(Debug)]
