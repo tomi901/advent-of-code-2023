@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 use std::io::{stdin, BufRead};
 use rayon::prelude::*;
 
@@ -10,7 +10,10 @@ fn main() {
     let maps = create_maps(&mut stdin().lock());
     // println!("Maps: {:#?}", maps);
 
-    let result = get_lowest_value(&seeds, &maps);
+    let candidates = get_candidates(&seeds, &maps);
+    // println!("Candidates ({}): {:?}", candidates.len(), candidates);
+
+    let result = get_lowest_value(&candidates, &maps);
     println!("Result: {:?}", result);
 }
 
@@ -58,7 +61,31 @@ fn create_map(input: &mut impl BufRead) -> TransformMap {
     TransformMap::new(ranges)
 }
 
-fn get_lowest_value(seeds: &Vec<Range<isize>>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
+fn get_candidates(seeds: &Vec<Range<isize>>, transform_maps: &Vec<TransformMap>) -> Vec<isize> {
+    let mut candidates: Vec<_> = seeds.iter().map(|s| s.start).collect();
+    for (i, map) in transform_maps.iter().enumerate() {
+        let cur_candidates = get_candidates_from_map(map, &transform_maps[..i])
+            .filter(|c| seeds.iter().any(|s| s.contains(c)));
+        candidates.extend(cur_candidates)
+    }
+    candidates
+}
+
+fn get_candidates_from_map<'a>(map: &'a TransformMap, previous: &'a [TransformMap]) -> impl Iterator<Item = isize> + 'a {
+    map.0.iter().map(|m| {
+        previous.into_iter().rev().try_fold(m.source_start, |n, m| {
+            m.try_inverse_transform(n)
+        })
+    }).flatten()
+}
+
+fn get_lowest_value(seeds: &Vec<isize>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
+    seeds.into_iter()
+        .map(|&seed| process_value(seed, transform_maps))
+        .min()
+}
+
+fn get_lowest_value_from_range(seeds: &Vec<Range<isize>>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
     seeds.into_par_iter()
         .enumerate()
         .map(|(i, seeds)| get_lowest_range_value(i, seeds.clone(), &transform_maps).unwrap())
@@ -99,23 +126,44 @@ impl TransformMap {
     pub fn try_transform(&self, n: isize) -> Option<isize> {
         self.0.iter().map(|r| r.try_transform(n)).flatten().next()
     }
+
+    pub fn try_inverse_transform(&self, n: isize) -> Option<isize> {
+        self.0.iter().map(|r| r.try_inverse_transform(n)).flatten().next()
+    }
 }
 
 #[derive(Debug)]
 pub struct MapRange {
-    source_range: Range<isize>,
-    destination: isize,
+    destination_start: isize,
+    source_start: isize,
+    length: isize,
 }
 
 impl MapRange {
     pub fn new(destination_start: isize, source_start: isize, length: isize) -> MapRange {
-        MapRange { source_range: source_start..(source_start + length), destination: destination_start }
+        MapRange { destination_start, source_start, length }
+    }
+
+    pub fn source_range(&self) -> Range<isize> {
+        self.source_start..(self.source_start + self.length)
+    }
+
+    pub fn destination_range(&self) -> Range<isize> {
+        self.destination_start..(self.destination_start + self.length)
     }
 
     pub fn try_transform(&self, n: isize) -> Option<isize> {
-        if self.source_range.contains(&n) {
-            let relative_value = n - self.source_range.start;
-            Some(self.destination + relative_value)
+        Self::try_transform_from_range(self.source_range(), self.destination_start, n)
+    }
+
+    pub fn try_inverse_transform(&self, n: isize) -> Option<isize> {
+        Self::try_transform_from_range(self.destination_range(), self.source_start, n)
+    }
+
+    fn try_transform_from_range(from: Range<isize>, to: isize, n: isize) -> Option<isize> {
+        if from.contains(&n) {
+            let relative_value = n - from.start;
+            Some(to + relative_value)
         } else {
             None
         }
