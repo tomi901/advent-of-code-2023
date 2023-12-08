@@ -3,34 +3,32 @@ use std::{io::{stdin, BufRead}, ops::RangeInclusive};
 
 
 fn main() {
-    let races: Vec<_> = get_races(stdin().lock()).collect();
-    // println!("{:#?}", &races);
-    let mut product = 1;
-    for race in races {
-        let range = race.get_record_time_rage();
-        let int_range = range.start().ceil() as isize..=range.end().floor() as isize;
-        let span = (int_range.start() - int_range.end()).abs() + 1;
-        println!("{:?} -> {:?} -> {:?} -> {}", &race, range, int_range, span);
-        product *= span;
-    }
-    println!("{product}");
+    let race = get_race(stdin().lock());
+
+    let range = race.get_record_time_rage();
+    let int_range = range.start().ceil() as isize..=range.end().floor() as isize;
+    let span = (int_range.start() - int_range.end()).abs() + 1;
+    println!("{:?} -> {:?} -> {:?} -> {}", &race, range, int_range, span);
 }
 
-fn get_races(input: impl BufRead) -> impl Iterator<Item = Race> {
-
+fn get_race(input: impl BufRead) -> Race {
     let mut lines = input.lines();
-    let time_numbers: Vec<_> = extract_numbers(&lines.next().unwrap().unwrap()).collect();
-    let distance_numbers: Vec<_> = extract_numbers(&lines.next().unwrap().unwrap()).collect();
-
-    time_numbers.into_iter().zip(distance_numbers).map(|(time, record)| Race { time, record })
+    Race {
+        time: extract_number(&lines.next().unwrap().unwrap()),
+        record: extract_number(&lines.next().unwrap().unwrap()),
+    }
 }
 
-fn extract_numbers(input: &str) -> impl Iterator<Item = usize> + '_ {
+fn extract_number(input: &str) -> usize {
     let select_nums_regex = regex!(r".*:(.*)");
-    let num_regex = regex!(r"\d+");
     
     let nums_str = select_nums_regex.captures(input).unwrap().get(1).unwrap().as_str();
-    num_regex.find_iter(nums_str).map(|m| m.as_str().parse::<usize>().unwrap())
+    remove_whitespaces(nums_str).parse::<usize>().unwrap()
+}
+
+// You can just remove the whitespaces from the input, but it took a minute to do this :)
+fn remove_whitespaces(s: &str) -> String {
+    s.split_whitespace().collect()
 }
 
 #[derive(Debug)]
