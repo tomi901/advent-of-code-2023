@@ -69,6 +69,7 @@ impl CardStack {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Card {
+    Joker = 1,
     Two = 2,
     Three = 3,
     Four = 4,
@@ -78,10 +79,9 @@ enum Card {
     Eight = 8,
     Nine = 9,
     Ten = 10,
-    Joker = 11,
-    Queen = 12,
-    King = 13,
-    Ace = 14,
+    Queen = 11,
+    King = 12,
+    Ace = 13,
 }
 
 impl Card {
@@ -123,7 +123,11 @@ impl HandType {
 
     fn from_card_stack(stack: &[Card]) -> HandType {
         let mut combinations_lookup: HashMap<Card, usize> = HashMap::new();
+        let mut joker_count = 0;
         for &card in stack {
+            if card == Card::Joker {
+                joker_count += 1;
+            }
             match combinations_lookup.entry(card) {
                 Entry::Vacant(entry) => {
                     entry.insert(1);
@@ -132,27 +136,43 @@ impl HandType {
             }
         }
 
-        let mut combinations: Vec<_> = combinations_lookup.iter().collect();
+        let mut combinations: Vec<_> = combinations_lookup.into_iter().collect();
+        combinations.sort_by_key(|x| std::cmp::Reverse(x.0));
         combinations.sort_by_key(|x| std::cmp::Reverse(x.1));
+
+        if joker_count > 0 {
+            let best_combination = combinations
+                .iter_mut()
+                .filter(|c| c.0 != Card::Joker)
+                .next();
+            if let Some(some_best_combination) = best_combination {
+                *some_best_combination = (some_best_combination.0, some_best_combination.1 + joker_count);
+                let joker_combination_index = combinations
+                    .iter_mut()
+                    .position(|c| c.0 == Card::Joker)
+                    .unwrap();
+                combinations.remove(joker_combination_index);
+            }
+        }
 
         /*
         println!("{stack:?}");
-        for combination in combinations {
+        for combination in &combinations {
             println!("{combination:?}");
         }
         */
 
-        if *combinations[0].1 == 5 {
+        if combinations[0].1 == 5 {
             HandType::FiveOfAKind
-        } else if *combinations[0].1 == 4 {
+        } else if combinations[0].1 == 4 {
             HandType::FourOfAKind
-        } else if combinations.len() > 1 && *combinations[0].1 == 3 && *combinations[1].1 == 2 {
+        } else if combinations.len() > 1 && combinations[0].1 == 3 && combinations[1].1 == 2 {
             HandType::FullHouse
-        } else if *combinations[0].1 == 3 {
+        } else if combinations[0].1 == 3 {
             HandType::ThreeOfAKind
-        } else if combinations.len() > 1 && *combinations[0].1 == 2 && *combinations[1].1 == 2 {
+        } else if combinations.len() > 1 && combinations[0].1 == 2 && combinations[1].1 == 2 {
             HandType::TwoPairs
-        } else if *combinations[0].1 == 2 {
+        } else if combinations[0].1 == 2 {
             HandType::OnePair
         } else {
             HandType::HighCard
