@@ -1,6 +1,6 @@
-use std::cmp::min;
 use std::ops::Range;
 use std::io::{stdin, BufRead};
+use rayon::prelude::*;
 
 fn main() {
     println!("Determining seeds");
@@ -59,23 +59,19 @@ fn create_map(input: &mut impl BufRead) -> TransformMap {
 }
 
 fn get_lowest_value(seeds: &Vec<Range<isize>>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
-    let mut cur_min = None;
-    for seed_range in seeds.clone() {
-        println!("Testing seed range {:?} ({} length)", seed_range, seed_range.len());
-        let min_found = seed_range.map(|seed| process_value(seed, &transform_maps)).min().unwrap();
-        if let Some(some_min) = cur_min {
-            cur_min = Some(min(min_found, some_min));
-        } else {
-            cur_min = Some(min_found);
-        }
-    }
-    cur_min
-    /*
-    seeds.iter()
-        .flat_map(|r| r.clone().into_iter())
-        .map(|seed| process_value(seed, &transform_maps))
+    seeds.into_par_iter()
+        .enumerate()
+        .map(|(i, seeds)| get_lowest_range_value(i, seeds.clone(), &transform_maps).unwrap())
         .min()
-    */
+}
+
+fn get_lowest_range_value(index: usize, seeds: Range<isize>, transform_maps: &Vec<TransformMap>) -> Option<isize> {
+    println!("Processing range ({}) {:?}...", index, &seeds);
+    let result = seeds.clone().into_par_iter()
+        .map(|s| process_value(s, &transform_maps))
+        .min();
+    println!("Finised ({}) {:?}! result = {:?}", index, &seeds, result);
+    result
 }
 
 fn process_value(seed: isize, transform_maps: &Vec<TransformMap>) -> isize {
