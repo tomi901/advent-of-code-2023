@@ -19,7 +19,7 @@ fn main() {
 
     let mut result = 1;
     for node in starting_nodes {
-        println!("Calculating from node: {:?}...", node.id);
+        println!("Calculating from node: {:?}...", node);
         let movements_required = node_map.get_movements_required(node);
         println!("Node {:?} requires {} movement/s", node.id, movements_required);
         result = lcm(result, movements_required);
@@ -60,7 +60,30 @@ impl NodeMap {
             // println!("{:?}", cur_node.id);
             movements_count += 1;
         }
-        movements_count
+        let required = movements_count;
+
+        println!("Calculating loop from: {:?}", cur_node);
+        let mut loop_count = 0;
+        let cur_movement = *self.movements
+            .get(movements_count % self.movements.len())
+            .unwrap();
+        let next_node_id = cur_node.next_id(cur_movement);
+        cur_node = self.nodes.get(&next_node_id).unwrap();
+        loop_count += 1;
+        movements_count += 1;
+        while cur_node.id[2] != 'Z' {
+            let cur_movement = *self.movements
+                .get(movements_count % self.movements.len())
+                .unwrap();
+            let next_node_id = cur_node.next_id(cur_movement);
+            cur_node = self.nodes.get(&next_node_id).unwrap();
+            // println!("{:?}", cur_node.id);
+            loop_count += 1;
+            movements_count += 1;
+        }
+        println!("Loop length ({:?}): {}", cur_node, loop_count);
+
+        required
     }
 }
 
