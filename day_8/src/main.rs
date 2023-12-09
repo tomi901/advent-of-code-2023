@@ -1,31 +1,67 @@
 use std::collections::HashMap;
 use std::io::{stdin, BufRead};
 use regex_macro::regex;
+use num::integer::lcm;
 
 fn main() {
     let movements_line = stdin().lock().lines().next().unwrap().unwrap();
     let movements: Vec<_> = Movement::parse_many(&movements_line).collect();
-    println!("Movements: {movements:?}");
+    // println!("Movements: {movements:?}");
     
-    let nodes: HashMap<NodeId, Node> = Node::parse_many(stdin().lock())
-        .map(|node| (node.id, node))
+    let nodes = Node::parse_many(stdin().lock());
+    let node_map = NodeMap::from_nodes(nodes, movements);
+    
+    let starting_nodes: Vec<_> = node_map.nodes
+        .values()
+        .filter(|n| n.id[2] == 'A')
         .collect();
+    println!("Starting nodes: {starting_nodes:?}");
 
-    const START_NODE_ID: NodeId = ['A', 'A', 'A'];
-    const FINISH_NODE_ID: NodeId = ['Z', 'Z', 'Z'];
+    let mut result = 1;
+    for node in starting_nodes {
+        println!("Calculating from node: {:?}...", node.id);
+        let movements_required = node_map.get_movements_required(node);
+        println!("Node {:?} requires {} movement/s", node.id, movements_required);
+        result = lcm(result, movements_required);
+    }
+    println!("{}", result);
+    /*
+    let movements_required: Vec<_> = starting_nodes
+        .into_iter()
+        .map(|n| node_map.get_movements_required(n))
+        .collect();
+    println!("Starting nodes: {movements_required:?}");
+     */
+}
 
-    let mut cur_node = nodes.get(&START_NODE_ID).unwrap();
-    let mut movements_count = 0;
-    
-    while cur_node.id != FINISH_NODE_ID {
-        let cur_movement = *movements.get(movements_count % movements.len()).unwrap();
-        let next_node_id = cur_node.next_id(cur_movement);
-        cur_node = nodes.get(&next_node_id).unwrap();
-        // println!("{:?}", cur_node.id);
-        movements_count += 1;
+#[derive(Debug)]
+struct NodeMap {
+    movements: Vec<Movement>,
+    nodes: HashMap<NodeId, Node>,
+}
+
+impl NodeMap {
+    fn from_nodes(nodes: impl Iterator<Item = Node>, movements: Vec<Movement>) -> Self {
+        Self {
+            nodes: nodes.map(|node| (node.id, node)).collect(),
+            movements,
+        }
     }
     
-    println!("{movements_count}");
+    fn get_movements_required(&self, start_node: &Node) -> usize {
+        let mut movements_count = 0;
+        let mut cur_node = start_node;
+        while cur_node.id[2] != 'Z' {
+            let cur_movement = *self.movements
+                .get(movements_count % self.movements.len())
+                .unwrap();
+            let next_node_id = cur_node.next_id(cur_movement);
+            cur_node = self.nodes.get(&next_node_id).unwrap();
+            // println!("{:?}", cur_node.id);
+            movements_count += 1;
+        }
+        movements_count
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
