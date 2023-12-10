@@ -1,16 +1,78 @@
 use std::cmp::min;
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter, Write};
 use std::io::{BufRead, stdin};
 
 fn main() {
-    let map = TileMap::parse(stdin().lock());
-    let starting_point = map.find_starting_point().expect("No starting point.");
+    let mut map = TileMap::parse(stdin().lock());
+    let (start_point, start_pipe) = map.find_starting_point().expect("No starting point.");
+    println!("{:?}", start_pipe);
+    println!();
     
-    println!("Starting from: {:?}", starting_point);
+    println!("Starting from: {:?}", start_point);
     
-    let max_distance = map.find_furthest_distance(starting_point);
-    println!("Distance: {:?}", max_distance);
+    // let max_distance = map.find_furthest_distance(starting_point);
+    // println!("Distance: {:?}", max_distance);
+    
+    let circuit = map.create_circuit(start_point);
+    // println!("Circuit: {:?}", circuit);
+    
+    map.clean(&circuit);
+
+    /*
+    println!();
+    for (_, row) in map.rows().enumerate() {
+        for (_, tile) in row.into_iter().enumerate() {
+            print!("{}", tile);
+        }
+        println!();
+    }
+    println!();
+    */
+
+    let mut inside_count = 0;
+    for (y, row) in map.rows().enumerate() {
+        let mut hit_count = 0;
+        for (x, tile) in row.into_iter().enumerate() {
+            let point: Point = (x as isize, y as isize);
+            // println!("{:?}", point);
+            if point == start_point {
+                if start_pipe.has_direction(Direction::North) {
+                    hit_count += 1;
+                }
+                continue;
+            }
+            match tile {
+                Tile::None => {
+                    let is_inside = (hit_count % 2) != 0;
+                    if is_inside {
+                        // println!("{:?} inside ({} hits)", point, hit_count);
+                        inside_count += 1;
+                    }
+                },
+                Tile::Start => {
+                    hit_count += 1;
+                },
+                Tile::Pipe(pipe) => {
+                    // We need to handle continuous horizontal pipe lines
+                    if !circuit.contains(&point) {
+                        let is_inside = (hit_count % 2) != 0;
+                        if is_inside {
+                            println!("{:?} inside ({} hits)", point, hit_count);
+                            inside_count += 1;
+                        }
+                        continue;
+                    }
+                    
+                    if pipe.has_direction(Direction::North) {
+                        hit_count += 1;
+                    }
+                },
+            }
+        }
+    }
+    println!("Inside count: {}", inside_count);
 }
 
 type Point = (isize, isize);
@@ -22,6 +84,13 @@ enum Direction {
     South,
     West,
 }
+
+const DIRECTIONS: [Direction; 4] = [
+    Direction::North,
+    Direction::East,
+    Direction::South,
+    Direction::West,
+];
 
 impl Direction {
     fn to_point(&self) -> Point {
@@ -75,6 +144,10 @@ impl Pipe {
         self.a == direction || self.b == direction
     }
     
+    fn has_directions(&self, direction1: Direction, direction2: Direction) -> bool {
+        self.has_direction(direction1) && self.has_direction(direction2)
+    }
+    
     fn get_other_direction(&self, direction: Direction) -> Option<Direction> {
         if self.a == direction {
             Some(self.b)
@@ -83,6 +156,27 @@ impl Pipe {
         } else {
             None
         }
+    }
+}
+
+impl Display for Pipe {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let c = if self.has_directions(Direction::North, Direction::South) {
+            '|'
+        } else if self.has_directions(Direction::West, Direction::East) {
+            '-'
+        } else if self.has_directions(Direction::North, Direction::East) {
+            'L'
+        } else if self.has_directions(Direction::North, Direction::West) {
+            'J'
+        } else if self.has_directions(Direction::South, Direction::West) {
+            '7'
+        } else if self.has_directions(Direction::South, Direction::East) {
+            'F'
+        } else {
+          panic!("Cannot display {:?}", &self);  
+        };
+        f.write_char(c)
     }
 }
 
@@ -121,6 +215,16 @@ impl Tile {
     }
 }
 
+impl Display for Tile {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Tile::None => f.write_char('.'),
+            Tile::Start => f.write_char('S'),
+            Tile::Pipe(pipe) => pipe.fmt(f),
+        }
+    }
+}
+
 struct TileMap {
     tiles: Vec<Tile>,
     width: usize,
@@ -130,14 +234,15 @@ struct TileMap {
 impl TileMap {
     fn parse(input: impl BufRead) -> Self {
         let mut lines = input.lines();
-        let mut tiles: Vec<Tile> = Vec::from_iter(
-            Self::parse_line(&lines.next().unwrap().unwrap())
-        );
+        let first_line = &lines.next().unwrap().unwrap();
+        // println!("{}", &first_line);
+        let mut tiles: Vec<Tile> = Vec::from_iter(Self::parse_line(first_line));
         let width = tiles.len();
         let mut height = 1;
 
         for line_result in lines {
             let line = line_result.unwrap();
+            // println!("{}", &line);
             tiles.extend(Self::parse_line(&line));
 
             height += 1;
@@ -163,12 +268,30 @@ impl TileMap {
         self.tiles.get(index)
     }
 
-    fn find_starting_point(&self) -> Option<Point> {
+    fn find_starting_point(&self) -> Option<(Point, Pipe)> {
         for y in 0..(self.height as isize) {
             for x in 0..(self.width as isize) {
                 let tile = self.get_tile((x, y));
                 if tile.is_some() && tile.unwrap().is_start() {
-                    return Some((x, y));
+                    let point: Point = (x, y);
+                    let mut directions = DIRECTIONS
+                        .into_iter()
+                        .filter(|&direction| {
+                            let next_point = Direction::move_towards(point, direction);
+                            let enter_from = direction.inverse();
+                            match self.get_tile(next_point) {
+                                Some(tile) => match tile {
+                                    Tile::Pipe(pipe) if pipe.has_direction(enter_from) => true,
+                                    _ => false,
+                                },
+                                _ => false,
+                            }
+                        });
+                    let pipe = crate::Pipe {
+                        a: directions.next().unwrap(),
+                        b: directions.next().unwrap(),
+                    };
+                    return Some((point, pipe));
                 }
             }
         }
@@ -176,13 +299,6 @@ impl TileMap {
     }
     
     fn find_furthest_distance(&self, starting_point: Point) -> Option<usize> {
-        const DIRECTIONS: [Direction; 4] = [
-            Direction::North,
-            Direction::East,
-            Direction::South,
-            Direction::West,
-        ];
-        
         let mut distances = HashMap::<Point, usize>::new();
         for direction in DIRECTIONS {
             let next_pos = Direction::move_towards(starting_point, direction);
@@ -199,14 +315,14 @@ impl TileMap {
                 }
                 let towards = pipe.get_other_direction(enter_from).unwrap();
                 println!("Starting from {:?} {:?} -> {:?}", next_pos, pipe, towards);
-                self.travel_pipes(next_pos, pipe, towards, &mut distances);
+                self.travel_pipes(next_pos, towards, &mut distances);
             }
         }
 
         distances.into_values().max()
     }
     
-    fn travel_pipes(&self, from_pos: Point, from_pipe: &Pipe, towards: Direction,
+    fn travel_pipes(&self, from_pos: Point, towards: Direction,
                     distances: &mut HashMap<Point, usize>) {
         let mut cur_pos = from_pos;
         let mut cur_direction = towards;
@@ -246,6 +362,73 @@ impl TileMap {
             Entry::Vacant(v) => {
                 v.insert(distance);
             },
+        }
+    }
+
+    fn create_circuit(&self, starting_point: Point) -> HashSet<Point> {
+        // TODO: We could create an Iterator to travel to all pipes to follow the DRY pattern
+        
+        let (start_pos, _, start_direction) = DIRECTIONS.into_iter().map(|direction| {
+            let next_pos = Direction::move_towards(starting_point, direction);
+            let tile = self.get_tile(next_pos);
+            if tile.is_none() {
+                return None;
+            }
+
+            if let Tile::Pipe(pipe) = tile.unwrap() {
+                // println!("Found tile at {:?} {:?}", next_pos, direction);
+                let enter_from = direction.inverse();
+                if !pipe.has_direction(enter_from) {
+                    return None;
+                }
+                let towards = pipe.get_other_direction(enter_from).unwrap();
+                return Some((next_pos, pipe, towards));
+            }
+            
+            None
+        }).flatten().next().unwrap();
+        
+        let mut circuit = HashSet::<Point>::new();
+        circuit.insert(starting_point);
+        circuit.insert(start_pos);
+        
+        let mut cur_pos = start_pos;
+        let mut cur_direction = start_direction;
+        loop {
+            cur_pos = Direction::move_towards(cur_pos, cur_direction);
+            let next_tile = self.get_tile(cur_pos).expect("Out of bounds.");
+            if next_tile.is_start() {
+                break;
+            }
+
+            let next_pipe = next_tile.try_get_pipe().expect("Next wasn't a pipe.");
+            let enter_from = cur_direction.inverse();
+            // println!("Will enter {:?} from {:?}", &next_pipe, enter_from);
+            cur_direction = next_pipe
+                .get_other_direction(enter_from)
+                .expect("Error getting next direction.");
+
+            circuit.insert(cur_pos);
+        }
+        circuit
+    }
+    
+    fn rows(&self) -> impl Iterator<Item = &[Tile]> + '_ {
+        (0..self.height).map(|y| {
+            let from = self.width * y;
+            &self.tiles[from..(from + self.width)]
+        })
+    }
+
+    fn clean(&mut self, maintain: &HashSet<Point>) {
+        for y in 0..(self.height as isize) {
+            for x in 0..(self.width as isize) {
+                let point = (x, y);
+                if !maintain.contains(&point) {
+                    let index = (point.0 as usize) + (self.width * (point.1 as usize));
+                    self.tiles[index] = Tile::None;
+                }
+            }
         }
     }
 }
