@@ -2,18 +2,35 @@ use std::io::{BufRead, stdin};
 use std::str::FromStr;
 
 fn main() {
+    let mut sum = 0;
     for line_result in stdin().lock().lines() {
         let line = line_result.unwrap();
         let row = Row::from_str(&line).unwrap();
-        println!("{:?}", &row);
+        // println!("{:?}", &row);
+        sum += row.find_possible_combinations();
     }
+    println!("{sum}");
+}
+
+fn get_bit_combinations(bits: usize, required_ones: usize) -> impl Iterator<Item = u128> {
+    if bits > 127 {
+        panic!("Cannot exceed 127 bits");
+    }
+    if required_ones > 127 {
+        panic!("Cannot exceed 127 required_ones");
+    }
+    (0..(1 << bits)).filter(move |&n| u128::count_ones(n) as usize == required_ones)
 }
 
 fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize {
     let known_damaged_count: usize = known_sequence.iter().sum();
     let revealed_damaged = tiles.iter().filter(|&t| t == &Tile::Damaged).count();
     let missing_damaged = known_damaged_count - revealed_damaged;
-    println!("{} missing", missing_damaged);
+    // println!("{} missing", missing_damaged);
+
+    if missing_damaged == 0 {
+        return 0;
+    }
 
     let unknown_indexes: Vec<_> = tiles
         .iter()
@@ -21,23 +38,24 @@ fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize
         .filter(|(_, &t)| t == Tile::Unknown)
         .map(|(i, _)| i)
         .collect();
-    
-    // TODO: Return case with one element in known_sequence
-    let first_sequence_number = *known_sequence.first().unwrap();
-    let mut temp_tiles = &mut tiles.iter().cloned().collect::<Vec<_>>()[..];
-    if known_sequence.len() == 1 {
-        for i in 0..1 {
-            
+
+    let mut temp_tiles: Vec<_> = tiles.iter().cloned().collect();
+    let mut count = 0;
+    for combination in get_bit_combinations(unknown_indexes.len(), missing_damaged) {
+        for (bit, &index) in (0..unknown_indexes.len()).zip(unknown_indexes.iter()) {
+            let is_damaged = ((1 << bit) & combination) != 0;
+            temp_tiles[index] = if is_damaged {
+                Tile::Damaged
+            } else {
+                Tile::Operational
+            }
+        }
+        if check_sequence(&temp_tiles, &known_sequence) {
+            count += 1;
         }
     }
     
-    let first_unknown_index = *unknown_indexes.first().unwrap();
-    /*
-    for  in  {
-        
-    }
-    */
-    0
+    count
 }
 
 fn check_sequence(tiles: &[Tile], expected_sequence: &[usize]) -> bool {
@@ -212,7 +230,7 @@ mod tests {
         assert!(!all_numbers_are_consecutive(nums))
     }
 
-    /*
+
     fn assert_combinations(s: &str, expected: usize) {
         let row = Row::from_str(s).unwrap();
         let result = row.find_possible_combinations();
@@ -248,5 +266,4 @@ mod tests {
     fn returns_correct_combinations_case_6() {
         assert_combinations("?###???????? 3,2,1", 10);
     }
-    */
 }
