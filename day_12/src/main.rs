@@ -41,6 +41,7 @@ fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize
 
     let mut temp_tiles: Vec<_> = tiles.iter().cloned().collect();
     let mut count = 0;
+    println!("Bits: {}, Missing: {}", unknown_indexes.len(), missing_damaged);
     for combination in get_bit_combinations(unknown_indexes.len(), missing_damaged) {
         for (bit, &index) in (0..unknown_indexes.len()).zip(unknown_indexes.iter()) {
             let is_damaged = ((1 << bit) & combination) != 0;
@@ -122,20 +123,29 @@ impl FromStr for Row {
         let mut split = s.split(' ');
         
         let tiles_str = split.next().expect("No tiles found in str.");
-        let tiles: Vec<_> = tiles_str
+        let temp_tiles: Vec<_> = tiles_str
             .chars()
             .map(Tile::try_from)
             .collect::<Result<_, _>>()
             .unwrap();
+        let mut tiles = temp_tiles.clone();
+        for _ in 0..5 {
+            tiles.push(Tile::Unknown);
+            tiles.extend(temp_tiles.iter());
+        }
 
         let sequence_str = split.next().expect("No sequence found in str.");
-        let expected_sequence: Vec<_> = sequence_str
+        let temp_known_sequence: Vec<_> = sequence_str
             .split(',')
             .map(usize::from_str)
             .collect::<Result<_, _>>()
             .unwrap();
+        let mut known_sequence = temp_known_sequence.clone();
+        for _ in 0..5 {
+            known_sequence.extend(temp_known_sequence.iter());
+        }
         
-        Ok(Row { tiles, known_sequence: expected_sequence })
+        Ok(Row { tiles, known_sequence })
     }
 }
 
