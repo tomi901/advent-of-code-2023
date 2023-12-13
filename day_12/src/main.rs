@@ -2,13 +2,18 @@ use std::io::{BufRead, stdin};
 use std::str::FromStr;
 
 fn main() {
+    use std::time::Instant;
+    let now = Instant::now();
+    
     let mut sum = 0;
-    for line_result in stdin().lock().lines() {
+    for (i, line_result) in stdin().lock().lines().enumerate() {
         let line = line_result.unwrap();
         let row = Row::from_str(&line).unwrap();
         // println!("{:?}", &row);
         sum += row.find_possible_combinations();
+        println!("{}) Elapsed: {:?}", {i + 1}, now.elapsed());
     }
+    println!("Total elapsed: {:?}", now.elapsed());
     println!("{sum}");
 }
 
@@ -41,7 +46,7 @@ fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize
 
     let mut temp_tiles: Vec<_> = tiles.iter().cloned().collect();
     let mut count = 0;
-    println!("Bits: {}, Missing: {}", unknown_indexes.len(), missing_damaged);
+    // println!("Bits: {}, Missing: {}", unknown_indexes.len(), missing_damaged);
     for combination in get_bit_combinations(unknown_indexes.len(), missing_damaged) {
         for (bit, &index) in (0..unknown_indexes.len()).zip(unknown_indexes.iter()) {
             let is_damaged = ((1 << bit) & combination) != 0;
@@ -57,6 +62,14 @@ fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize
     }
     
     count
+}
+
+fn find_possible_combinations_1(current_group: usize, tiles: &[Tile], next_groups: &[usize]) -> usize {
+    if next_groups.len() == 0 {
+        // current_group
+    }
+    
+    0
 }
 
 fn check_sequence(tiles: &[Tile], expected_sequence: &[usize]) -> bool {
@@ -129,10 +142,12 @@ impl FromStr for Row {
             .collect::<Result<_, _>>()
             .unwrap();
         let mut tiles = temp_tiles.clone();
+        /*
         for _ in 0..5 {
             tiles.push(Tile::Unknown);
             tiles.extend(temp_tiles.iter());
         }
+        */
 
         let sequence_str = split.next().expect("No sequence found in str.");
         let temp_known_sequence: Vec<_> = sequence_str
@@ -141,9 +156,11 @@ impl FromStr for Row {
             .collect::<Result<_, _>>()
             .unwrap();
         let mut known_sequence = temp_known_sequence.clone();
+        /*
         for _ in 0..5 {
             known_sequence.extend(temp_known_sequence.iter());
         }
+        */
         
         Ok(Row { tiles, known_sequence })
     }
