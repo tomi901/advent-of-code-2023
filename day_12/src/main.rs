@@ -1,120 +1,124 @@
+use std::cmp::min;
+use std::fmt::Write;
 use std::io::{BufRead, stdin};
+use std::ops::Range;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 fn main() {
     use std::time::Instant;
     let now = Instant::now();
     
+    /*
     let mut sum = 0;
     for (i, line_result) in stdin().lock().lines().enumerate() {
+        let local_now = Instant::now();
         let line = line_result.unwrap();
         let row = Row::from_str(&line).unwrap();
         // println!("{:?}", &row);
-        sum += row.find_possible_combinations();
-        println!("{}) Elapsed: {:?}", {i + 1}, now.elapsed());
+        let result = row.find_possible_combinations();
+        sum += result;
+        println!("{}) [{} element/s] -> {}", i + 1, row.tiles.len(), result);
+        println!(" - Elapsed: {:?}", local_now.elapsed());
     }
+    println!("Total elapsed: {:?}", now.elapsed());
+    println!("{sum}");
+    */
+
+    let rows: Vec<_> = stdin()
+        .lock()
+        .lines()
+        .enumerate()
+        .map(|(i, s)| {
+            (i + 1, Row::from_str(&s.unwrap()).unwrap())
+        })
+        .collect();
+
+    let progress = Arc::new(Mutex::new(0));
+    let total_length = rows.len();
+    let sum: usize = rows
+        .into_par_iter()
+        .map(move |(i, row)| {
+            let progress_ref = progress.clone();
+            let local_now = Instant::now();
+            let result = row.find_possible_combinations();
+
+            let current_progress = {
+                let mut mutex = progress_ref.lock().unwrap();
+                let current_progress = *mutex + 1;
+                *mutex = current_progress;
+                current_progress
+            };
+            let current_time = now.elapsed();
+            println!("({}/{}) N°{} finished. Current elapsed: {:?}, Total elapsed: {:?}",
+                current_progress, total_length, i + 1, local_now.elapsed(), current_time);
+            if current_progress % 5 == 0 {
+                let average_time = current_time / current_progress;
+                let estimated_time = average_time * total_length as u32;
+                let eta = estimated_time - current_time;
+                println!("ETA: {eta:?}, Average time: {average_time:?}, Total estimated: {estimated_time:?}");
+            }
+            result
+        })
+        .sum();
+
     println!("Total elapsed: {:?}", now.elapsed());
     println!("{sum}");
 }
 
-fn get_bit_combinations(bits: usize, required_ones: usize) -> impl Iterator<Item = u128> {
-    if bits > 127 {
-        panic!("Cannot exceed 127 bits");
-    }
-    if required_ones > 127 {
-        panic!("Cannot exceed 127 required_ones");
-    }
-    (0..(1 << bits)).filter(move |&n| u128::count_ones(n) as usize == required_ones)
-}
-
-fn find_possible_combinations(tiles: &[Tile], known_sequence: &[usize]) -> usize {
-    let known_damaged_count: usize = known_sequence.iter().sum();
-    let revealed_damaged = tiles.iter().filter(|&t| t == &Tile::Damaged).count();
-    let missing_damaged = known_damaged_count - revealed_damaged;
-    // println!("{} missing", missing_damaged);
-
-    if missing_damaged == 0 {
+fn find_possible_combinations(current_group: usize, tiles: &[Tile], next_groups: &[usize]) -> usize {
+    if tiles.len() == 0 {
         return 0;
     }
-
-    let unknown_indexes: Vec<_> = tiles
-        .iter()
-        .enumerate()
-        .filter(|(_, &t)| t == Tile::Unknown)
-        .map(|(i, _)| i)
-        .collect();
-
-    let mut temp_tiles: Vec<_> = tiles.iter().cloned().collect();
-    let mut count = 0;
-    // println!("Bits: {}, Missing: {}", unknown_indexes.len(), missing_damaged);
-    for combination in get_bit_combinations(unknown_indexes.len(), missing_damaged) {
-        for (bit, &index) in (0..unknown_indexes.len()).zip(unknown_indexes.iter()) {
-            let is_damaged = ((1 << bit) & combination) != 0;
-            temp_tiles[index] = if is_damaged {
-                Tile::Damaged
-            } else {
-                Tile::Operational
-            }
-        }
-        if check_sequence(&temp_tiles, &known_sequence) {
-            count += 1;
-        }
-    }
-    
-    count
-}
-
-fn find_possible_combinations_1(current_group: usize, tiles: &[Tile], next_groups: &[usize]) -> usize {
+    // println!("Testing ({:?}, {:?}) on {:?}", current_group, &next_groups, &tiles);
     if next_groups.len() == 0 {
-        // current_group
+        let limit = tiles.len() - current_group + 1;
+        // println!("- Will test {} combination/s", {limit});
+        let combinations = (0..limit)
+            .filter(|&i| {
+                let check_range = i..(i + current_group);
+                can_place_group(&check_range, &tiles)
+            })
+            .count();
+        // println!("- Found {} combination/s", combinations);
+        return combinations;
     }
     
-    0
+    let min_length = current_group + next_groups.iter().sum::<usize>() + next_groups.len();
+    let first_damaged_pos = tiles.iter().position(Tile::is_damaged);
+    let limit = tiles.len() - min_length;
+    let actual_limit = min(limit, first_damaged_pos.unwrap_or(usize::MAX)) + 1;
+    // println!("- Will recursively test {} combination/s (Min length {}/{})", actual_limit, min_length, tiles.len());
+
+    let next_group = *next_groups.first().unwrap();
+    let combinations = (0..actual_limit)
+        .map(|i| {
+            let check_range = i..(i + current_group);
+            if can_place_group(&check_range, tiles) {
+                let next_rest = &tiles[(check_range.end + 1)..];
+                find_possible_combinations(next_group, next_rest, &next_groups[1..])
+            } else {
+                0
+            }
+        })
+        .sum();
+    // println!("- Summed to {} combination/s", combinations);
+    combinations
 }
 
-fn check_sequence(tiles: &[Tile], expected_sequence: &[usize]) -> bool {
-    let mut next_expected = 0;
-    let mut sequence_iter = expected_sequence.iter();
-    for &tile in tiles.iter() {
-        if next_expected == 0{
-            if tile.is_damaged() {
-                next_expected = match sequence_iter.next() {
-                    Some(&n) => n,
-                    None => return false,
-                };
-            }
-            continue;
-        }
-
-        if next_expected == 1 {
-            if tile.is_damaged() {
-                return false;
-            }
-            next_expected -= 1;
-            continue;
-        }
-
-        if !tile.is_damaged() {
-            return false;
-        }
-        next_expected -= 1;
+fn can_place_group(group: &Range<usize>, tiles: &[Tile]) -> bool {
+    let tiles_slice = &tiles[group.clone()];
+    if tiles_slice.len() != group.len() {
+        return false;
     }
-    return next_expected <= 1 && sequence_iter.next().is_none();
-}
-
-fn all_numbers_are_consecutive(nums: &[usize]) -> bool {
-    let mut iter = nums.iter();
-    let mut cur = match iter.next() {
-        Some(n) => *n,
-        None => return false,
-    };
-    for &num in iter {
-        if (cur + 1) != num {
-            return false;
-        }
-        cur = num;
+    if tiles_slice.iter().any(|&t| t == Tile::Operational) {
+        return false;
     }
-    return true;
+    match tiles.get(group.end) {
+        Some(&next_tile) if next_tile == Tile::Damaged => false,
+        _ => true,
+    }
 }
 
 #[derive(Debug)]
@@ -125,7 +129,9 @@ struct Row {
 
 impl Row {
     fn find_possible_combinations(&self) -> usize {
-        find_possible_combinations(&self.tiles, &self.known_sequence)
+        let first_group = *self.known_sequence.first().unwrap();
+        let rest = &self.known_sequence[1..];
+        find_possible_combinations(first_group, &self.tiles, rest)
     }
 }
 
@@ -133,6 +139,8 @@ impl FromStr for Row {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        const EXTEND: usize = 5;
+
         let mut split = s.split(' ');
         
         let tiles_str = split.next().expect("No tiles found in str.");
@@ -142,12 +150,10 @@ impl FromStr for Row {
             .collect::<Result<_, _>>()
             .unwrap();
         let mut tiles = temp_tiles.clone();
-        /*
-        for _ in 0..5 {
+        for _ in 0..(EXTEND - 1) {
             tiles.push(Tile::Unknown);
             tiles.extend(temp_tiles.iter());
         }
-        */
 
         let sequence_str = split.next().expect("No sequence found in str.");
         let temp_known_sequence: Vec<_> = sequence_str
@@ -156,21 +162,30 @@ impl FromStr for Row {
             .collect::<Result<_, _>>()
             .unwrap();
         let mut known_sequence = temp_known_sequence.clone();
-        /*
-        for _ in 0..5 {
+        for _ in 0..(EXTEND - 1) {
             known_sequence.extend(temp_known_sequence.iter());
         }
-        */
         
         Ok(Row { tiles, known_sequence })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Tile {
     Unknown,
     Operational,
     Damaged,
+}
+
+impl std::fmt::Debug for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ch = match self {
+            Tile::Unknown => '?',
+            Tile::Operational => '.',
+            Tile::Damaged => '#',
+        };
+        f.write_char(ch)
+    }
 }
 
 impl Tile {
@@ -202,8 +217,6 @@ mod tests {
     use std::str::FromStr;
     use crate::Row;
     use crate::Tile::*;
-    use crate::all_numbers_are_consecutive;
-    use crate::check_sequence;
 
     #[test]
     fn row_parses_correctly() {
@@ -215,82 +228,44 @@ mod tests {
         assert_eq!(&row.known_sequence[..], &expected_sequence);
     }
 
-    #[test]
-    fn check_returns_true_1() {
-        assert_check_returns("#.#.### 1,1,3", true)
-    }
+    mod examples {
+        use std::str::FromStr;
+        use crate::Row;
 
-    #[test]
-    fn check_returns_true_2() {
-        assert_check_returns("..#.### 1,3", true)
-    }
+        fn assert_combinations(s: &str, expected: usize) {
+            let row = Row::from_str(s).unwrap();
+            let result = row.find_possible_combinations();
+            assert_eq!(result, expected);
+        }
 
-    #[test]
-    fn check_returns_false_1() {
-        assert_check_returns("???.### 1,1,3", false)
-    }
+        #[test]
+        fn returns_correct_combinations_case_1() {
+            assert_combinations("???.### 1,1,3", 1);
+        }
 
-    #[test]
-    fn check_returns_false_2() {
-        assert_check_returns("#.#..## 1,1,3", false)
-    }
+        #[test]
+        fn returns_correct_combinations_case_2() {
+            assert_combinations(".??..??...?##. 1,1,3", 4);
+        }
 
-    #[test]
-    fn check_returns_false_3() {
-        assert_check_returns("#.#.##. 1,1,3", false)
-    }
+        #[test]
+        fn returns_correct_combinations_case_3() {
+            assert_combinations("?#?#?#?#?#?#?#? 1,3,1,6", 1);
+        }
 
-    fn assert_check_returns(s: &str, expected: bool) {
-        let row = Row::from_str(s).unwrap();
-        assert_eq!(check_sequence(&row.tiles, &row.known_sequence), expected);
-    }
+        #[test]
+        fn returns_correct_combinations_case_4() {
+            assert_combinations("????.#...#... 4,1,1", 1);
+        }
 
-    #[test]
-    fn consecutive_nums_return_true() {
-        let nums = &[1, 2, 3, 4, 5];
-        assert!(all_numbers_are_consecutive(nums))
-    }
+        #[test]
+        fn returns_correct_combinations_case_5() {
+            assert_combinations("????.######..#####. 1,6,5", 4);
+        }
 
-    #[test]
-    fn consecutive_nums_return_false() {
-        let nums = &[1, 2, 4, 5];
-        assert!(!all_numbers_are_consecutive(nums))
-    }
-
-
-    fn assert_combinations(s: &str, expected: usize) {
-        let row = Row::from_str(s).unwrap();
-        let result = row.find_possible_combinations();
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_1() {
-        assert_combinations("???.### 1,1,3", 1);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_2() {
-        assert_combinations(".??..??...?##. 1,1,3", 4);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_3() {
-        assert_combinations("?#?#?#?#?#?#?#? 1,3,1,6", 1);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_4() {
-        assert_combinations("????.#...#... 4,1,1", 1);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_5() {
-        assert_combinations("????.######..#####. 1,6,5", 4);
-    }
-
-    #[test]
-    fn returns_correct_combinations_case_6() {
-        assert_combinations("?###???????? 3,2,1", 10);
+        #[test]
+        fn returns_correct_combinations_case_6() {
+            assert_combinations("?###???????? 3,2,1", 10);
+        }
     }
 }
