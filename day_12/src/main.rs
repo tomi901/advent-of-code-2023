@@ -1,4 +1,5 @@
 use std::cmp::min;
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::io::{BufRead, stdin};
 use std::ops::Range;
@@ -10,7 +11,6 @@ fn main() {
     use std::time::Instant;
     let now = Instant::now();
     
-    /*
     let mut sum = 0;
     for (i, line_result) in stdin().lock().lines().enumerate() {
         let local_now = Instant::now();
@@ -24,8 +24,8 @@ fn main() {
     }
     println!("Total elapsed: {:?}", now.elapsed());
     println!("{sum}");
-    */
 
+    /*
     let rows: Vec<_> = stdin()
         .lock()
         .lines()
@@ -65,73 +65,97 @@ fn main() {
 
     println!("Total elapsed: {:?}", now.elapsed());
     println!("{sum}");
+    */
 }
 
-fn find_possible_combinations(current_group: usize, tiles: &[Tile], next_groups: &[usize]) -> usize {
-    if tiles.len() == 0 {
+// Answer copied from https://pastebin.com/1EAdWWMk
+// I tried to learn from it at the very least
+fn find_possible_combinations_cached(
+    cache: &mut HashMap<(usize, usize, u16), usize>,
+    tiles: &[Tile],
+    groups: &[u16],
+    from_i: usize,
+    group_i: usize,
+    size: u16,
+) -> usize {
+    if from_i >= tiles.len() {
+        // Exhausted all groups
+        if group_i >= groups.len() {
+            return 1;
+        }
+        
+        // The line ends with a "damaged" symbol and we've matched that last group
+        if group_i >= groups.len() - 1 && groups[group_i] == size {
+            return 1;
+        }
+        
         return 0;
     }
-    // println!("Testing ({:?}, {:?}) on {:?}", current_group, &next_groups, &tiles);
-    if next_groups.len() == 0 {
-        let limit = tiles.len() - current_group + 1;
-        // println!("- Will test {} combination/s", {limit});
-        let combinations = (0..limit)
-            .filter(|&i| {
-                let check_range = i..(i + current_group);
-                can_place_group(&check_range, &tiles)
-            })
-            .count();
-        // println!("- Found {} combination/s", combinations);
-        return combinations;
-    }
-    
-    let min_length = current_group + next_groups.iter().sum::<usize>() + next_groups.len();
-    let first_damaged_pos = tiles.iter().position(Tile::is_damaged);
-    let limit = tiles.len() - min_length;
-    let actual_limit = min(limit, first_damaged_pos.unwrap_or(usize::MAX)) + 1;
-    // println!("- Will recursively test {} combination/s (Min length {}/{})", actual_limit, min_length, tiles.len());
 
-    let next_group = *next_groups.first().unwrap();
-    let combinations = (0..actual_limit)
-        .map(|i| {
-            let check_range = i..(i + current_group);
-            if can_place_group(&check_range, tiles) {
-                let next_rest = &tiles[(check_range.end + 1)..];
-                find_possible_combinations(next_group, next_rest, &next_groups[1..])
-            } else {
-                0
+    return match tiles[from_i] {
+        Tile::Operational => {
+            // Skip sequence of operational spots
+            if size == 0 {
+                return find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i, size);
             }
-        })
-        .sum();
-    // println!("- Summed to {} combination/s", combinations);
-    combinations
-}
 
-fn can_place_group(group: &Range<usize>, tiles: &[Tile]) -> bool {
-    let tiles_slice = &tiles[group.clone()];
-    if tiles_slice.len() != group.len() {
-        return false;
-    }
-    if tiles_slice.iter().any(|&t| t == Tile::Operational) {
-        return false;
-    }
-    match tiles.get(group.end) {
-        Some(&next_tile) if next_tile == Tile::Damaged => false,
-        _ => true,
+            // The current combination failed to match a proper sequence from the input
+            if group_i >= groups.len() || size != groups[group_i] {
+                return 0;
+            }
+
+            // we have a match: process the next group
+            find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i + 1, 0)
+        },
+        Tile::Damaged => {
+            // We don't expect any other damaged spots, failed to match
+            if group_i >= groups.len() || size + 1 > groups[group_i] {
+                return 0;
+            }
+
+            find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i, size + 1)
+        },
+        Tile::Unknown => {
+            if let Some(&answer) = cache.get(&(from_i, group_i, size)) {
+                return answer;
+            }
+            
+            let mut combinations = 0;
+
+            // if we did not encounter any damaged cells,
+            // we can treat this one as undamaged
+            if size == 0 {
+                combinations += find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i, size);
+            }
+
+            // If we need more damaged cells to complete our match,
+            // we can treat the current cell as damaged
+            if group_i < groups.len() && size < groups[group_i] {
+                combinations += find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i, size + 1);
+            }
+
+            // We have the correct number of damaged cells, so we can just
+            // treat this one as undamaged in order to complete the match
+            if group_i < groups.len() && size == groups[group_i] {
+                combinations += find_possible_combinations_cached(cache, tiles, groups, from_i + 1, group_i + 1, 0);
+            }
+
+            cache.insert((from_i, group_i, size), combinations);
+            combinations
+        },
     }
 }
 
 #[derive(Debug)]
 struct Row {
     tiles: Vec<Tile>,
-    known_sequence: Vec<usize>,
+    known_sequence: Vec<u16>,
 }
 
 impl Row {
     fn find_possible_combinations(&self) -> usize {
-        let first_group = *self.known_sequence.first().unwrap();
-        let rest = &self.known_sequence[1..];
-        find_possible_combinations(first_group, &self.tiles, rest)
+        let mut cache = HashMap::default();
+        find_possible_combinations_cached(&mut cache, &self.tiles, &self.known_sequence, 0, 0, 0)
     }
 }
 
@@ -158,7 +182,7 @@ impl FromStr for Row {
         let sequence_str = split.next().expect("No sequence found in str.");
         let temp_known_sequence: Vec<_> = sequence_str
             .split(',')
-            .map(usize::from_str)
+            .map(u16::from_str)
             .collect::<Result<_, _>>()
             .unwrap();
         let mut known_sequence = temp_known_sequence.clone();
