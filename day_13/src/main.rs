@@ -77,33 +77,34 @@ impl Map {
     }
 
     fn is_vertical_mirror_index(&self, i: usize) -> bool {
+        let mut diffs = 0;
         for (left, right) in Self::mirror_iter(i, self.width) {
-            if !self.vertical_check(left, right) {
-                // println!("{left} <-> {right} not mirrored");
+            diffs += self.vertical_check(left, right);
+            if diffs > 1 {
                 return false;
             }
         }
-        true
+        diffs == 1
     }
 
-    fn vertical_check(&self, i1: usize, i2: usize) -> bool {
+    fn vertical_check(&self, i1: usize, i2: usize) -> usize {
+        let mut diffs = 0;
         for y in 0..self.height {
             let left_tile = self.get(Point2D(i1, y));
             let right_tile = self.get(Point2D(i2, y));
             if left_tile.is_none() || right_tile.is_none() {
-                return true;
+                return diffs;
             }
 
             if *left_tile.unwrap() != *right_tile.unwrap() {
-                return false;
+                diffs += 1;
             }
         }
-        return true;
+        return diffs;
     }
 
     fn find_horizontal_mirror_index(&self) -> Option<usize> {
         for i in 1..self.height {
-            // println!("Horizontal {i}");
             if self.is_horizontal_mirror_index(i) {
                 return Some(i);
             }
@@ -112,31 +113,30 @@ impl Map {
     }
 
     fn is_horizontal_mirror_index(&self, i: usize) -> bool {
+        let mut diffs = 0;
         for (upper, bottom) in Self::mirror_iter(i, self.height) {
-            if !self.horizontal_check(upper, bottom) {
-                // println!("{upper} <-> {bottom} not mirrored");
+            diffs += self.horizontal_check(upper, bottom);
+            if diffs > 1 {
                 return false;
             }
         }
-        true
+        diffs == 1
     }
 
-    fn horizontal_check(&self, i1: usize, i2: usize) -> bool {
-        // println!("Checking:");
-        // println!("{} {:?}", i1, &self.tiles[(i1 * self.width)..(i1 * self.width + self.width)]);
-        // println!("{} {:?}", i2, &self.tiles[(i2 * self.width)..(i2 * self.width + self.width)]);
+    fn horizontal_check(&self, i1: usize, i2: usize) -> usize {
+        let mut diffs = 0;
         for x in 0..self.width {
             let tile1 = self.get(Point2D(x, i1));
             let tile2 = self.get(Point2D(x, i2));
             if tile1.is_none() || tile2.is_none() {
-                return true;
+                return diffs;
             }
 
             if *tile1.unwrap() != *tile2.unwrap() {
-                return false;
+                diffs += 1;
             }
         }
-        return true;
+        return diffs;
     }
 
     fn mirror_iter(start: usize, width: usize) -> impl Iterator<Item = (usize, usize)> {
