@@ -11,12 +11,23 @@ fn main() {
     let mut reader = BufReader::new(file);
     
     let map = Map::try_from(&mut reader).unwrap();
-    println!("{}", map);
-    
+    // println!("{}", map);
+
+    // part_1(&map);
+    part_2(&map);
+}
+
+fn part_1(map: &Map) {
     let points = map.get_beam_positions(Beam::starting());
     map.display_visited(&points);
-    
     println!("{}", points.len())
+}
+
+fn part_2(map: &Map) {
+    let max = Beam::get_all_entrances_for_map(&map)
+        .map(|b| map.get_beam_positions(b).len())
+        .max();
+    println!("{max:?}");
 }
 
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
@@ -110,6 +121,19 @@ impl Beam {
     fn try_move_one_towards(&self, direction: Direction) -> Option<Self> {
         let new_beam = Self(self.0, direction);
         new_beam.try_move_one()
+    }
+
+    fn get_all_entrances_for_map(map: &Map) -> impl Iterator<Item = Self> + '_ {
+        let towards_north = (0..map.width)
+            .map(|x| Beam(Point2D(x, map.height - 1), Direction::North));
+        let towards_east = (0..map.height)
+            .map(|y| Beam(Point2D(0, y), Direction::East));
+        let towards_south = (0..map.width)
+            .map(|x| Beam(Point2D(x, 0), Direction::South));
+        let towards_west = (0..map.height)
+            .map(|y| Beam(Point2D(map.width, y), Direction::West));
+
+        towards_north.chain(towards_east).chain(towards_south).chain(towards_west)
     }
 }
 
