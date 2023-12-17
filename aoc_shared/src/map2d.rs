@@ -32,6 +32,14 @@ pub enum ParseMapError<T> where T : TryFrom<char> {
 }
 
 impl<T: TryFrom<char>> Map2D<T> {
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+    
     pub fn try_from_reader(reader: &mut impl BufRead) -> Option<Result<Self, ParseMapError<T>>> {
         let mut lines = reader.lines();
         let first_line = match lines.next() {
