@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 aoc_shared = { path = "../aoc_shared" }
 byteorder = "1.5.0"
+pathfinding = "4.6.0"
+sorted-vec = "0.8.3"

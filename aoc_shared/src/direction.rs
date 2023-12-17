@@ -6,6 +6,8 @@ pub enum Direction {
     West,
 }
 
+pub const DIRECTIONS: [Direction; 4] = [Direction::North, Direction::East, Direction::South, Direction::West];
+
 impl Direction {
     pub fn turn_left(&self) -> Self {
         match self {

@@ -1,8 +1,15 @@
-﻿use crate::direction::Direction;
+﻿use std::fmt::{Debug, Formatter};
+use crate::direction::Direction;
 use crate::vector2d::Vector2D;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Coords2D(pub usize, pub usize);
+
+impl Debug for Coords2D {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.0, self.1)
+    }
+}
 
 impl Coords2D {
     pub const ZERO: Self = Self(0, 0);
