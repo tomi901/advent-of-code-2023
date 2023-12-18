@@ -1,0 +1,334 @@
+﻿Travelling from (0, 0) to (140, 140). Distance: 280
+Iteration 10000:
+- Open list len: 41297
+- Insert time average: 34.037µs
+- Insert time total: 2.7906659s
+- Total time: 2.8868412s
+- Closed list len: 10000
+- Closest node: Some(233)
+- Cheapest next node: Some(1535)
+- Cheapest cost move in open list: Some(126)
+Iteration 20000:
+- Open list len: 65317
+- Insert time average: 52.493µs
+- Insert time total: 8.7124607s
+- Total time: 8.9196125s
+- Closed list len: 20000
+- Closest node: Some(218)
+- Cheapest next node: Some(1930)
+- Cheapest cost move in open list: Some(166)
+Iteration 30000:
+- Open list len: 83146
+- Insert time average: 69.169µs
+- Insert time total: 17.3397682s
+- Total time: 17.6904385s
+- Closed list len: 30000
+- Closest node: Some(209)
+- Cheapest next node: Some(2246)
+- Cheapest cost move in open list: Some(199)
+Iteration 40000:
+- Open list len: 98174
+- Insert time average: 81.657µs
+- Insert time total: 27.3087308s
+- Total time: 27.7760317s
+- Closed list len: 40000
+- Closest node: Some(202)
+- Cheapest next node: Some(2520)
+- Cheapest cost move in open list: Some(227)
+Iteration 50000:
+- Open list len: 107273
+- Insert time average: 92.205µs
+- Insert time total: 38.4469356s
+- Total time: 39.0342406s
+- Closed list len: 50000
+- Closest node: Some(195)
+- Cheapest next node: Some(2780)
+- Cheapest cost move in open list: Some(253)
+Iteration 60000:
+- Open list len: 118086
+- Insert time average: 102.036µs
+- Insert time total: 51.2063835s
+- Total time: 51.9551811s
+- Closed list len: 60000
+- Closest node: Some(187)
+- Cheapest next node: Some(3029)
+- Cheapest cost move in open list: Some(278)
+Iteration 70000:
+- Open list len: 129696
+- Insert time average: 110.631µs
+- Insert time total: 64.8990569s
+- Total time: 65.7795542s
+- Closed list len: 70000
+- Closest node: Some(183)
+- Cheapest next node: Some(3259)
+- Cheapest cost move in open list: Some(302)
+Iteration 80000:
+- Open list len: 138955
+- Insert time average: 118.533µs
+- Insert time total: 79.3228921s
+- Total time: 80.3354162s
+- Closed list len: 80000
+- Closest node: Some(179)
+- Cheapest next node: Some(3475)
+- Cheapest cost move in open list: Some(324)
+Iteration 90000:
+- Open list len: 145144
+- Insert time average: 125.856µs
+- Insert time total: 94.5385682s
+- Total time: 95.68833s
+- Closed list len: 90000
+- Closest node: Some(175)
+- Cheapest next node: Some(3688)
+- Cheapest cost move in open list: Some(346)
+Iteration 100000:
+- Open list len: 157955
+- Insert time average: 132.971µs
+- Insert time total: 111.1242115s
+- Total time: 112.4091426s
+- Closed list len: 100000
+- Closest node: Some(171)
+- Cheapest next node: Some(3884)
+- Cheapest cost move in open list: Some(366)
+Iteration 110000:
+- Open list len: 170748
+- Insert time average: 140.338µs
+- Insert time total: 128.9971459s
+- Total time: 130.4249823s
+- Closed list len: 110000
+- Closest node: Some(166)
+- Cheapest next node: Some(4062)
+- Cheapest cost move in open list: Some(383)
+Iteration 120000:
+- Open list len: 179068
+- Insert time average: 147.839µs
+- Insert time total: 148.075107s
+- Total time: 149.6896845s
+- Closed list len: 120000
+- Closest node: Some(162)
+- Cheapest next node: Some(4236)
+- Cheapest cost move in open list: Some(402)
+Iteration 130000:
+- Open list len: 183926
+- Insert time average: 154.835µs
+- Insert time total: 167.4670287s
+- Total time: 169.2268787s
+- Closed list len: 130000
+- Closest node: Some(160)
+- Cheapest next node: Some(4403)
+- Cheapest cost move in open list: Some(419)
+Iteration 140000:
+- Open list len: 186696
+- Insert time average: 161.272µs
+- Insert time total: 187.4411817s
+- Total time: 189.3486847s
+- Closed list len: 140000
+- Closest node: Some(157)
+- Cheapest next node: Some(4573)
+- Cheapest cost move in open list: Some(436)
+Iteration 150000:
+- Open list len: 193628
+- Insert time average: 167.759µs
+- Insert time total: 208.9008837s
+- Total time: 210.9608186s
+- Closed list len: 150000
+- Closest node: Some(154)
+- Cheapest next node: Some(4737)
+- Cheapest cost move in open list: Some(453)
+Iteration 160000:
+- Open list len: 201882
+- Insert time average: 173.997µs
+- Insert time total: 231.0241729s
+- Total time: 233.2348478s
+- Closed list len: 160000
+- Closest node: Some(151)
+- Cheapest next node: Some(4893)
+- Cheapest cost move in open list: Some(468)
+Iteration 170000:
+- Open list len: 209030
+- Insert time average: 180.27µs
+- Insert time total: 254.2395509s
+- Total time: 256.6026571s
+- Closed list len: 170000
+- Closest node: Some(147)
+- Cheapest next node: Some(5045)
+- Cheapest cost move in open list: Some(484)
+Iteration 180000:
+- Open list len: 212702
+- Insert time average: 186.171µs
+- Insert time total: 277.4754927s
+- Total time: 279.9936543s
+- Closed list len: 180000
+- Closest node: Some(144)
+- Cheapest next node: Some(5196)
+- Cheapest cost move in open list: Some(499)
+Iteration 190000:
+- Open list len: 220212
+- Insert time average: 192.075µs
+- Insert time total: 302.3482353s
+- Total time: 305.0251583s
+- Closed list len: 190000
+- Closest node: Some(141)
+- Cheapest next node: Some(5340)
+- Cheapest cost move in open list: Some(514)
+Iteration 200000:
+- Open list len: 227360
+- Insert time average: 199.331µs
+- Insert time total: 330.1246839s
+- Total time: 332.9734638s
+- Closed list len: 200000
+- Closest node: Some(137)
+- Cheapest next node: Some(5477)
+- Cheapest cost move in open list: Some(528)
+Iteration 210000:
+- Open list len: 233357
+- Insert time average: 207.022µs
+- Insert time total: 359.5728134s
+- Total time: 362.602282s
+- Closed list len: 210000
+- Closest node: Some(133)
+- Cheapest next node: Some(5610)
+- Cheapest cost move in open list: Some(541)
+Iteration 220000:
+- Open list len: 240217
+- Insert time average: 213.891µs
+- Insert time total: 388.9371164s
+- Total time: 392.1472652s
+- Closed list len: 220000
+- Closest node: Some(128)
+- Cheapest next node: Some(5739)
+- Cheapest cost move in open list: Some(555)
+Iteration 230000:
+- Open list len: 249740
+- Insert time average: 221.792µs
+- Insert time total: 421.6772265s
+- Total time: 425.152595s
+- Closed list len: 230000
+- Closest node: Some(124)
+- Cheapest next node: Some(5860)
+- Cheapest cost move in open list: Some(567)
+Iteration 240000:
+- Open list len: 257665
+- Insert time average: 229.82µs
+- Insert time total: 455.8442767s
+- Total time: 459.5008579s
+- Closed list len: 240000
+- Closest node: Some(119)
+- Cheapest next node: Some(5978)
+- Cheapest cost move in open list: Some(579)
+Iteration 250000:
+- Open list len: 262146
+- Insert time average: 238.452µs
+- Insert time total: 492.2582689s
+- Total time: 496.1013478s
+- Closed list len: 250000
+- Closest node: Some(117)
+- Cheapest next node: Some(6094)
+- Cheapest cost move in open list: Some(591)
+Iteration 260000:
+- Open list len: 267564
+- Insert time average: 247.662µs
+- Insert time total: 531.4814588s
+- Total time: 535.5098639s
+- Closed list len: 260000
+- Closest node: Some(114)
+- Cheapest next node: Some(6206)
+- Cheapest cost move in open list: Some(603)
+Iteration 270000:
+- Open list len: 273895
+- Insert time average: 257.137µs
+- Insert time total: 572.7965867s
+- Total time: 577.0137353s
+- Closed list len: 270000
+- Closest node: Some(107)
+- Cheapest next node: Some(6314)
+- Cheapest cost move in open list: Some(614)
+Iteration 280000:
+- Open list len: 281003
+- Insert time average: 266.521µs
+- Insert time total: 615.2106468s
+- Total time: 619.6181129s
+- Closed list len: 280000
+- Closest node: Some(106)
+- Cheapest next node: Some(6415)
+- Cheapest cost move in open list: Some(624)
+Iteration 290000:
+- Open list len: 286493
+- Insert time average: 276.554µs
+- Insert time total: 660.4494845s
+- Total time: 665.052494s
+- Closed list len: 290000
+- Closest node: Some(103)
+- Cheapest next node: Some(6513)
+- Cheapest cost move in open list: Some(634)
+Iteration 300000:
+- Open list len: 292080
+- Insert time average: 286.9µs
+- Insert time total: 708.116672s
+- Total time: 712.9199623s
+- Closed list len: 300000
+- Closest node: Some(100)
+- Cheapest next node: Some(6607)
+- Cheapest cost move in open list: Some(644)
+Iteration 310000:
+- Open list len: 293081
+- Insert time average: 303.039µs
+- Insert time total: 771.2868976s
+- Total time: 776.3328052s
+- Closed list len: 310000
+- Closest node: Some(97)
+- Cheapest next node: Some(6702)
+- Cheapest cost move in open list: Some(653)
+Iteration 320000:
+- Open list len: 290986
+- Insert time average: 314.432µs
+- Insert time total: 823.810953s
+- Total time: 829.0680245s
+- Closed list len: 320000
+- Closest node: Some(95)
+- Cheapest next node: Some(6797)
+- Cheapest cost move in open list: Some(663)
+Iteration 330000:
+- Open list len: 285302
+- Insert time average: 323.421µs
+- Insert time total: 870.984462s
+- Total time: 876.44415s
+- Closed list len: 330000
+- Closest node: Some(90)
+- Cheapest next node: Some(6894)
+- Cheapest cost move in open list: Some(673)
+Iteration 340000:
+- Open list len: 278444
+- Insert time average: 335.305µs
+- Insert time total: 927.2502535s
+- Total time: 932.9337798s
+- Closed list len: 340000
+- Closest node: Some(87)
+- Cheapest next node: Some(6991)
+- Cheapest cost move in open list: Some(683)
+Iteration 350000:
+- Open list len: 268422
+- Insert time average: 348.396µs
+- Insert time total: 988.3544953s
+- Total time: 994.2832261s
+- Closed list len: 350000
+- Closest node: Some(82)
+- Cheapest next node: Some(7094)
+- Cheapest cost move in open list: Some(693)
+Iteration 360000:
+- Open list len: 253651
+- Insert time average: 358.929µs
+- Insert time total: 1043.0310721s
+- Total time: 1049.1983597s
+- Closed list len: 360000
+- Closest node: Some(75)
+- Cheapest next node: Some(7203)
+- Cheapest cost move in open list: Some(704)
+Iteration 370000:
+- Open list len: 237930
+- Insert time average: 366.003µs
+- Insert time total: 1088.85414s
+- Total time: 1095.249645s
+- Closed list len: 370000
+- Closest node: Some(73)
+- Cheapest next node: Some(7321)
+- Cheapest cost move in open list: Some(717)
