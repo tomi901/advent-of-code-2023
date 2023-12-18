@@ -7,7 +7,7 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3db71348-f165-4216-995f-188f3d31a068" name="Changes" comment="Day 18 - Part 1">
+    <list default="true" id="3db71348-f165-4216-995f-188f3d31a068" name="Changes" comment="Day 18 - Part 2 - New way of parsing, requiring new algorithm to calculate in time">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/day_18/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/day_18/src/main.rs" afterDir="false" />
     </list>
@@ -34,6 +34,7 @@
   "keyToString": {
     "Cargo.Run day_14.executor": "Run",
     "Cargo.Run day_18.executor": "Run",
+    "Cargo.Test main::tests.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "master",
@@ -82,9 +83,27 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Test main::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package day_18 --bin day_18 tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Cargo.Run day_18" />
+        <item itemvalue="Cargo.Test main::tests" />
         <item itemvalue="Cargo.Run day_14" />
       </list>
     </recent_temporary>
@@ -101,7 +120,8 @@
       <option name="presentableId" value="Default" />
       <updated>1702579728850</updated>
       <workItem from="1702579730628" duration="3228000" />
-      <workItem from="1702914211709" duration="8536000" />
+      <workItem from="1702914211709" duration="8999000" />
+      <workItem from="1702932129695" duration="2603000" />
     </task>
     <task id="LOCAL-00001" summary="Day 14 - Parsing and load calculation">
       <option name="closed" value="true" />
@@ -119,7 +139,15 @@
       <option name="project" value="LOCAL" />
       <updated>1702924694178</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Day 18 - Part 2 - New way of parsing, requiring new algorithm to calculate in time">
+      <option name="closed" value="true" />
+      <created>1702925763024</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1702925763024</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -139,6 +167,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Day 14 - Parsing and load calculation" />
     <MESSAGE value="Day 18 - Part 1" />
-    <option name="LAST_COMMIT_MESSAGE" value="Day 18 - Part 1" />
+    <MESSAGE value="Day 18 - Part 2 - New way of parsing, requiring new algorithm to calculate in time" />
+    <option name="LAST_COMMIT_MESSAGE" value="Day 18 - Part 2 - New way of parsing, requiring new algorithm to calculate in time" />
   </component>
 </project>

@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -19,7 +17,6 @@ fn main() {
 fn read_file() -> impl BufRead {
     let path = std::env::current_dir().unwrap().join("day_18/input.txt");
     println!("Opening file: {}", path.display());
-    println!();
     let file = File::open(path).unwrap();
     BufReader::new(file)
 }
@@ -29,49 +26,55 @@ fn part_1() {
         .map(|l| l.unwrap().parse::<DigInstruction>().unwrap())
         .collect();
 
-    let mut map = DigMap::with_starting_path(&path);
-    println!("Map is {}x{}", map.width(), map.height());
+    // println!("{:#?}", path);
 
-    println!();
-    // print!("{}", map);
-    println!("{} dug.", map.dig_count());
+    let edges_points = path.iter().map(|x| x.amount).sum::<usize>();
 
-    map.dig_interior();
-    println!();
-    // print!("{}", map);
-    println!("{} dug.", map.dig_count());
+    let polygon = create_polygon(path.into_iter());
+    let interior_points = get_interior_area(&polygon);
+
+    let total_area = interior_points + (edges_points / 2) + 1;
+    println!("{}", total_area);
 }
 
 fn part_2() {
-    let path: Vec<DigInstruction> = read_file().lines()
+    let path = read_file().lines()
         .map(|l| DigInstruction::from_hex_code(&l.unwrap()))
-        .collect();
+        .collect::<Vec<_>>();
 
-    // println!("{path:?}");
+    // println!("{:#?}", path);
 
-    let mut map = DigMap::with_starting_path(&path);
-    println!("Map is {}x{}", map.width(), map.height());
+    let edges_points = path.iter().map(|x| x.amount).sum::<usize>();
 
-    println!();
-    // print!("{}", map);
-    println!("{} dug.", map.dig_count());
+    let polygon = create_polygon(path.into_iter());
+    let interior_points = get_interior_area(&polygon);
 
-    map.dig_interior();
-    println!();
-    // print!("{}", map);
-    println!("{} dug.", map.dig_count());
+    let total_area = interior_points + (edges_points / 2) + 1;
+    println!("{}", total_area);
 }
 
-fn get_bounds(movements: impl Iterator<Item = Vector2D>) -> (Vector2D, Vector2D) {
-    let mut cur_point = Vector2D::ZERO;
-    let mut min = Vector2D::ZERO;
-    let mut max = Vector2D::ZERO;
-    for movement in movements {
-        cur_point = cur_point.add(movement);
-        min = min.min_2d(cur_point);
-        max = max.max_2d(cur_point);
+fn create_polygon(path: impl Iterator<Item = DigInstruction>) -> Vec<Vector2D> {
+    let mut polygon = vec![];
+    let mut cur_pos = Vector2D::ZERO;
+    for instruction in path {
+        polygon.push(cur_pos);
+        cur_pos = cur_pos + instruction.dig_vector();
     }
-    (min, max + Vector2D(1, 1))
+    polygon
+}
+
+fn get_interior_area(points: &[Vector2D]) -> usize {
+    let n = points.len();
+    let mut area = 0;
+
+    for i in 0..n {
+        let j = (i + 1) % n;
+        area += points[i].0 * points[j].1;
+        area -= points[j].0 * points[i].1;
+        // println!("{:?} <-> {:?}", points[i], points[j]);
+    }
+
+    area.abs() as usize / 2
 }
 
 #[derive(Debug, Clone)]
@@ -132,111 +135,17 @@ impl FromStr for DigInstruction {
     }
 }
 
-struct DigMap {
-    dug: HashMap<Vector2D, Option<Direction>>,
-    from: Vector2D,
-    to: Vector2D,
-}
+#[cfg(test)]
+mod tests {
+    use aoc_shared::vector2d::Vector2D;
+    use crate::get_interior_area;
 
-impl DigMap {
-    fn with_starting_path(path: &Vec<DigInstruction>) -> Self {
-        let bounds = get_bounds(path.iter().map(DigInstruction::dig_vector));
-        println!("Bounds {:?} -> {:?}", bounds.0, bounds.1);
+    #[test]
+    fn get_simple_area() {
+        let polygon = &[Vector2D(0, 0), Vector2D(2, 0), Vector2D(2, 1), Vector2D(0, 1)];
 
-        let mut dug = HashMap::default();
-        let mut cur_point = Vector2D::ZERO;
-        for instruction in path {
-            let direction = instruction.direction;
-            let move_towards: Vector2D = direction.into();
-            if direction == Direction::South {
-                dug.insert(cur_point, Some(Direction::South));
-            }
-            for i in 0..instruction.amount {
-                cur_point = cur_point + move_towards;
-                if direction != Direction::South || i < instruction.amount - 1 {
-                    dug.insert(cur_point, Some(direction));
-                } else {
-                    dug.insert(cur_point, None);
-                }
-            }
-        }
-        Self {
-            dug,
-            from: bounds.0,
-            to: bounds.1,
-        }
-    }
+        let area = get_interior_area(polygon);
 
-    fn width(&self) -> usize {
-        self.from.0.abs_diff(self.to.0)
-    }
-
-    fn height(&self) -> usize {
-        self.from.1.abs_diff(self.to.1)
-    }
-
-    fn dig_count(&self) -> usize {
-        self.dug.len()
-    }
-
-    fn dig(&mut self, point: &Vector2D) {
-        self.dug.insert(point.clone(), None);
-    }
-
-    fn is_dug(&self, point: &Vector2D) -> bool {
-        self.dug.contains_key(point)
-    }
-
-    fn dig_interior(&mut self) {
-        for y in self.from.1..self.to.1 {
-            if (y % 10000) == 0 {
-                println!("{y}/{}", self.to.1);
-            }
-            let mut digging = false;
-            for x in self.from.0..self.to.0 {
-                let point = Vector2D(x, y);
-                if let Some(d) = self.dug.get(&point).and_then(|&d| d) {
-                    if d == Direction::South || d == Direction::North {
-                        digging = !digging;
-                    }
-                }
-
-                if digging && !self.is_dug(&point) {
-                    self.dig(&point);
-                }
-            }
-        }
-    }
-
-    fn get_display_char(&self, point: &Vector2D) -> char {
-        let dig_point = self.dug.get(&point);
-        if dig_point.is_none() {
-            return '.';
-        }
-
-        match dig_point.unwrap() {
-            Some(d) => match d {
-                Direction::North => 'A',
-                Direction::East => '>',
-                Direction::South => 'V',
-                Direction::West => '<'
-            },
-            None => '#',
-        }
-    }
-}
-
-impl Display for DigMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        const MAX_SHOWN_COLUMNS: isize = 24;
-        for y in self.from.1..self.to.1 {
-            for x in self.from.0..min(self.to.0, MAX_SHOWN_COLUMNS) {
-                let point = Vector2D(x, y);
-                let ch = self.get_display_char(&point);
-                write!(f, "{}", ch)?;
-            }
-            writeln!(f)?;
-        }
-        Ok(())
+        assert_eq!(area, 2);
     }
 }
