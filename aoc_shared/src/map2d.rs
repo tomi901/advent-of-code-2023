@@ -5,13 +5,13 @@ use crate::coords2d::Coords2D;
 pub type CharMap = Map2D<char>;
 
 #[derive(Clone)]
-pub struct Map2D<T> where T : TryFrom<char> {
+pub struct Map2D<T> {
     tiles: Vec<T>,
     width: usize,
     height: usize,
 }
 
-impl<T: Display + TryFrom<char>> Display for Map2D<T> {
+impl<T: Display> Display for Map2D<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for row_i in 0..self.height {
             let start_i = row_i * self.width;
@@ -31,7 +31,7 @@ pub enum ParseMapError<T> where T : TryFrom<char> {
     InconsistentWidth { expected_width: usize },
 }
 
-impl<T: TryFrom<char>> Map2D<T> {
+impl<T> Map2D<T> {
     pub fn width(&self) -> usize {
         self.width
     }
@@ -39,7 +39,33 @@ impl<T: TryFrom<char>> Map2D<T> {
     pub fn height(&self) -> usize {
         self.height
     }
-    
+
+    pub fn coords_are_inside(&self, coords: Coords2D) -> bool {
+        coords.0 < self.width && coords.1 < self.height
+    }
+
+    pub fn get_index(&self, coords: Coords2D) -> Option<usize> {
+        if self.coords_are_inside(coords) {
+            Some(coords.0 + (self.width * coords.1))
+        } else {
+            None
+        }
+    }
+
+    pub fn get(&self, coords: Coords2D) -> Option<&T> {
+        self.get_index(coords)
+            .map(|i| self.tiles.get(i))
+            .flatten()
+    }
+
+    pub fn get_mut(&mut self, coords: Coords2D) -> Option<&mut T> {
+        self.get_index(coords)
+            .map(|i| self.tiles.get_mut(i))
+            .flatten()
+    }
+}
+
+impl<T: TryFrom<char>> Map2D<T> {
     pub fn try_from_reader(reader: &mut impl BufRead) -> Option<Result<Self, ParseMapError<T>>> {
         let mut lines = reader.lines();
         let first_line = match lines.next() {
@@ -98,29 +124,16 @@ impl<T: TryFrom<char>> Map2D<T> {
             height
         }))
     }
-    
-    pub fn coords_are_inside(&self, coords: Coords2D) -> bool {
-        coords.0 < self.width && coords.1 < self.height
-    }
-    
-    pub fn get_index(&self, coords: Coords2D) -> Option<usize> {
-        if self.coords_are_inside(coords) {
-            Some(coords.0 + (self.width * coords.1))
-        } else {
-            None
-        }
-    }
-    
-    pub fn get(&self, coords: Coords2D) -> Option<&T> {
-        self.get_index(coords)
-            .map(|i| self.tiles.get(i))
-            .flatten()
-    }
+}
 
-    pub fn get_mut(&mut self, coords: Coords2D) -> Option<&mut T> {
-        self.get_index(coords)
-            .map(|i| self.tiles.get_mut(i))
-            .flatten()
+impl<T: Clone> Map2D<T> {
+    fn filled_with(tile: &T, width: usize, height: usize) -> Self {
+        let tiles = vec![tile.clone(); width * height];
+        Self {
+            tiles,
+            width,
+            height
+        }
     }
 }
 

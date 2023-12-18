@@ -1,4 +1,5 @@
 ﻿use std::fmt::{Debug, Formatter};
+use std::num::TryFromIntError;
 use crate::direction::Direction;
 use crate::vector2d::Vector2D;
 
@@ -8,6 +9,15 @@ pub struct Coords2D(pub usize, pub usize);
 impl Debug for Coords2D {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
+    }
+}
+
+impl TryFrom<Vector2D> for Coords2D {
+    type Error = TryFromIntError;
+
+    fn try_from(value: Vector2D) -> Result<Self, Self::Error> {
+        let err = usize::try_from(value.0);
+        Ok(Coords2D(usize::try_from(value.0)?, usize::try_from(value.1)?))
     }
 }
 
