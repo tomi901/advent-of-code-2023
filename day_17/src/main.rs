@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::BufReader;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use aoc_shared::coords2d::Coords2D;
 use aoc_shared::direction::{Direction, DIRECTIONS};
 use aoc_shared::map2d::Map2D;
@@ -68,17 +68,19 @@ fn pathfind_map(map: &TileMap, start: Coords2D, destination: Coords2D) -> Option
              start.manhattan_distance_to(destination));
 
     let start_instant = Instant::now();
-    let mut open_list = HashMap::<Movement, Breadcrumb>::default();
+    let mut open_list = BinaryHeap::<ReverseCostOrder>::default();
     let mut closed_list = HashMap::<Movement, Breadcrumb>::default();
 
     let mut insert_instant = Instant::now();
     open_list.extend(DIRECTIONS
         .iter()
         .flat_map(|&d| get_next_points_for_direction(map, start, destination, d))
-        .map(|b| (b.movement, b))
+        .map(ReverseCostOrder)
     );
     let mut open_list_insert_duration = insert_instant.elapsed();
     let mut open_list_insert_amount = open_list.len() as u32;
+    let mut open_list_pop_duration = Duration::ZERO;
+    let mut open_list_pop_amount = 0;
     // println!("{:?}", open_list.iter().rev().collect::<Vec<_>>());
     
     let mut best_candidate: Option<Breadcrumb> = None;
@@ -86,16 +88,15 @@ fn pathfind_map(map: &TileMap, start: Coords2D, destination: Coords2D) -> Option
 
     let mut i = 0;
     'outer_while: while open_list.len() > 0 {
-        let (movement, breadcrumb) = match open_list.iter().min_by_key(|(_, b)| b.final_cost) {
-            Some((m, b)) => (m.clone(), b.clone()),
-            None => break,
-        };
-        open_list.remove(&movement);
+        let pop_instant = Instant::now();
+        let breadcrumb = open_list.pop().unwrap().0;
+        open_list_pop_duration += pop_instant.elapsed();
+        open_list_pop_amount += 1;
 
-        if closed_list.contains_key(&movement) {
+        if closed_list.contains_key(&breadcrumb.movement) {
             continue;
         }
-        closed_list.insert(movement, breadcrumb.clone());
+        closed_list.insert(breadcrumb.movement, breadcrumb.clone());
 
         for new_breadcrumb in get_next_points_from_breadcrumb(map, &breadcrumb, destination) {
             if closed_list.contains_key(&new_breadcrumb.movement) {
@@ -103,8 +104,8 @@ fn pathfind_map(map: &TileMap, start: Coords2D, destination: Coords2D) -> Option
             }
             
             if new_breadcrumb.heuristic_cost != 0 {
-                let time = std::time::Instant::now();
-                open_list.insert(new_breadcrumb.movement, new_breadcrumb);
+                let time = Instant::now();
+                open_list.push(ReverseCostOrder(new_breadcrumb));
                 open_list_insert_duration += time.elapsed();
                 open_list_insert_amount += 1;
                 continue;
@@ -118,7 +119,6 @@ fn pathfind_map(map: &TileMap, start: Coords2D, destination: Coords2D) -> Option
             println!("Candidate has cost: {}", new_breadcrumb.move_cost / MOVE_COST_PENALTY);
             closed_list.insert(new_breadcrumb.movement, new_breadcrumb.clone());
             best_candidate = Some(new_breadcrumb.clone());
-            break 'outer_while;
         }
 
         closed_list.insert(breadcrumb.movement, breadcrumb.clone());
@@ -129,11 +129,13 @@ fn pathfind_map(map: &TileMap, start: Coords2D, destination: Coords2D) -> Option
             println!("- Open list len: {}", open_list.len());
             println!("- Insert time average: {:?}", open_list_insert_duration / open_list_insert_amount);
             println!("- Insert time total: {:?}", open_list_insert_duration);
+            println!("- Pop time average: {:?}", open_list_pop_duration / open_list_pop_amount);
+            println!("- Pop time total: {:?}", open_list_pop_duration);
             println!("- Total time: {:?}", start_instant.elapsed());
             println!("- Closed list len: {}", closed_list.len());
             println!("- Closest node: {:?}", closed_list.values().map(|x| x.heuristic_cost).min());
-            println!("- Cheapest next node: {:?}", open_list.iter().map(|x| x.1.final_cost).min());
-            println!("- Cheapest cost move in open list: {:?}", open_list.iter().map(|x| x.1.move_cost).min().and_then(|x| Some(x / MOVE_COST_PENALTY)));
+            println!("- Cheapest next node: {:?}", open_list.iter().map(|x| x.0.final_cost).min());
+            println!("- Cheapest cost move in open list: {:?}", open_list.iter().map(|x| x.0.move_cost).min().and_then(|x| Some(x / MOVE_COST_PENALTY)));
         }
     }
     
