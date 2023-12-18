@@ -7,7 +7,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3db71348-f165-4216-995f-188f3d31a068" name="Changes" comment="" />
+    <list default="true" id="3db71348-f165-4216-995f-188f3d31a068" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/advent_of_code_2023.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/advent_of_code_2023.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/day_18/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/day_18/src/main.rs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -19,9 +23,9 @@
   <component name="MacroExpansionManager">
     <option name="directoryName" value="5q79fwil" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 1
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
   <component name="ProjectId" id="2ZXsOQ2QgYkFbO7NCravIxbfoKf" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -30,6 +34,7 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Cargo.Run day_14.executor": "Run",
+    "Cargo.Run day_18.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "master",
@@ -43,7 +48,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Cargo.Run day_18">
     <configuration name="Run day_14" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="run --package day_14 --bin day_14" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -61,8 +66,26 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Run day_18" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="run --package day_18 --bin day_18" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Run day_18" />
         <item itemvalue="Cargo.Run day_14" />
       </list>
     </recent_temporary>
@@ -79,6 +102,7 @@
       <option name="presentableId" value="Default" />
       <updated>1702579728850</updated>
       <workItem from="1702579730628" duration="3228000" />
+      <workItem from="1702914211709" duration="7538000" />
     </task>
     <task id="LOCAL-00001" summary="Day 14 - Parsing and load calculation">
       <option name="closed" value="true" />
