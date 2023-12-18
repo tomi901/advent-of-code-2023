@@ -5,12 +5,15 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::Add;
 use std::str::FromStr;
-use regex_macro::regex;
+use regex_macro::{regex, Regex};
 use aoc_shared::direction::Direction;
 use aoc_shared::vector2d::Vector2D;
 
+const REGEX_TEXT: &'static str = r"(\w+) (\d+) \(#([\d\w]{6})";
+
 fn main() {
-    part_1();
+    // part_1();
+    part_2();
 }
 
 fn read_file() -> impl BufRead {
@@ -25,6 +28,26 @@ fn part_1() {
     let path: Vec<DigInstruction> = read_file().lines()
         .map(|l| l.unwrap().parse::<DigInstruction>().unwrap())
         .collect();
+
+    let mut map = DigMap::with_starting_path(&path);
+    println!("Map is {}x{}", map.width(), map.height());
+
+    println!();
+    // print!("{}", map);
+    println!("{} dug.", map.dig_count());
+
+    map.dig_interior();
+    println!();
+    // print!("{}", map);
+    println!("{} dug.", map.dig_count());
+}
+
+fn part_2() {
+    let path: Vec<DigInstruction> = read_file().lines()
+        .map(|l| DigInstruction::from_hex_code(&l.unwrap()))
+        .collect();
+
+    // println!("{path:?}");
 
     let mut map = DigMap::with_starting_path(&path);
     println!("Map is {}x{}", map.width(), map.height());
@@ -58,6 +81,24 @@ struct DigInstruction {
 }
 
 impl DigInstruction {
+    fn from_hex_code(s: &str) -> Self {
+        let regex = regex!(REGEX_TEXT);
+        let captures = regex.captures(s).ok_or("Regex failed").unwrap();
+        let hex = captures.get(3).unwrap().as_str();
+        let direction = match &hex[5..] {
+            "0" => Direction::East,
+            "1" => Direction::South,
+            "2" => Direction::West,
+            "3" => Direction::North,
+            _ => panic!("Unexpected case: {}", &hex[5..]),
+        };
+        let amount = usize::from_str_radix(&hex[..5], 16).unwrap();
+        Self {
+            direction,
+            amount,
+        }
+    }
+
     fn parse_direction(s: &str) -> Direction {
         match s {
             "U" => Direction::North,
@@ -77,7 +118,7 @@ impl FromStr for DigInstruction {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regex = regex!(r"(\w+) (\d+) \(#([\d\w]{6})");
+        let regex = regex!(REGEX_TEXT);
         let captures = regex.captures(s).ok_or("Regex failed")?;
         let direction = DigInstruction::parse_direction(
             captures.get(1).ok_or("No direction in match")?.as_str(),
@@ -148,6 +189,9 @@ impl DigMap {
 
     fn dig_interior(&mut self) {
         for y in self.from.1..self.to.1 {
+            if (y % 10000) == 0 {
+                println!("{y}/{}", self.to.1);
+            }
             let mut digging = false;
             for x in self.from.0..self.to.0 {
                 let point = Vector2D(x, y);
