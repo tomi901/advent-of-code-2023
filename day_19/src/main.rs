@@ -1,12 +1,17 @@
+mod part;
+mod workflow_map;
+mod rule;
+mod xmas_range;
+
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter, write};
+use std::fmt::Debug;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 use regex_macro::regex;
-
-const STARTING_POINT: &str = "in";
+use crate::part::Part;
+use crate::rule::Rule;
+use crate::workflow_map::WorkflowMap;
 
 fn main() {
     part_1();
@@ -38,8 +43,13 @@ fn read_file() -> impl BufRead {
     BufReader::new(file)
 }
 
+pub const STARTING_POINT: &str = "in";
+pub const PROPERTIES_COUNT: usize = 4;
+
+pub type XMAS = [usize; PROPERTIES_COUNT];
+
 #[derive(Debug, Copy, Clone)]
-enum Property {
+pub enum Property {
     X = 0,
     M = 1,
     A = 2,
@@ -60,53 +70,8 @@ impl FromStr for Property {
     }
 }
 
-type XMAS = [usize; 4];
-
-#[derive(Default)]
-struct Part(XMAS);
-
-impl Debug for Part {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{x={},m={},a={},s={}}}", self.0[0], self.0[1], self.0[2], self.0[3])
-    }
-}
-
-impl Part {
-    fn new(x: usize, m: usize, a: usize, s: usize) -> Self {
-        Self([x, m, a, s])
-    }
-
-    fn get(&self, property: Property) -> usize {
-        self.0[property as usize]
-    }
-
-    fn set(&mut self, property: Property, value: usize) {
-        self.0[property as usize] = value;
-    }
-
-    fn values_sum(&self) -> usize {
-        self.0.iter().sum()
-    }
-}
-
-impl FromStr for Part {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let trimmed = s.trim_start_matches('{').trim_end_matches('}');
-        let mut part = Part::default();
-        for prop_value in trimmed.split(',') {
-            let mut prop_value_split = prop_value.split('=');
-            let property = prop_value_split.next().unwrap().parse::<Property>()?;
-            let value = prop_value_split.next().unwrap().parse::<usize>().unwrap();
-            part.set(property, value);
-        }
-        Ok(part)
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-enum Destination {
+pub enum Destination {
     Accept,
     Reject,
     SendTo(String),
@@ -123,7 +88,17 @@ impl From<&str> for Destination {
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Condition(Property, Ordering, usize);
+pub struct Condition(pub Property, pub Ordering, pub usize);
+
+impl Condition {
+    pub fn inverted(&self) -> Self {
+        match self.1 {
+            Ordering::Less => Condition(self.0, Ordering::Greater, self.2 - 1),
+            Ordering::Greater => Condition(self.0, Ordering::Less, self.2 + 1),
+            Ordering::Equal => panic!("Cannot invert equals."),
+        }
+    }
+}
 
 impl FromStr for Condition {
     type Err = ();
@@ -142,60 +117,8 @@ impl FromStr for Condition {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Rule {
-    condition: Option<Condition>,
-    destination: Destination,
-}
-
-impl Rule {
-    fn with_condition(condition: Condition, destination: Destination) -> Self {
-        Self {
-            condition: Some(condition),
-            destination,
-        }
-    }
-
-    fn no_condition(destination: Destination) -> Self {
-        Self {
-            condition: None,
-            destination,
-        }
-    }
-
-    pub fn get_destination_for_part(&self, part: &Part) -> Option<&Destination> {
-        self.check_condition_for_part(part).then_some(&self.destination)
-    }
-
-    pub fn check_condition_for_part(&self, part: &Part) -> bool {
-        if self.condition.is_none() {
-            // println!("Sending directly to: {:?}", self.destination);
-            return true;
-        }
-        let Condition(property, operation, value) = self.condition.unwrap();
-        let result = part.get(property).cmp(&value);
-        // println!("{:?} {:?} {:?} = {:?}", property, operation, value, result);
-        result == operation
-    }
-}
-
-impl FromStr for Rule {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains(':') {
-            let mut split = s.split(':');
-            let condition = split.next().unwrap().parse::<Condition>()?;
-            let destination = Destination::from(split.next().unwrap());
-            Ok(Self::with_condition(condition, destination))
-        } else {
-            Ok(Self::no_condition(Destination::from(s)))
-        }
-    }
-}
-
 #[derive(Debug)]
-struct Workflow {
+pub struct Workflow {
     id: String,
     rules: Vec<Rule>,
 }
@@ -223,45 +146,10 @@ impl FromStr for Workflow {
     }
 }
 
-struct WorkflowMap(HashMap<String, Workflow>);
-
-impl WorkflowMap {
-    fn check_accepted(&self, part: &Part) -> bool {
-        let mut cur_workflow = self.0.get("in").expect("No \"in\" workflow.");
-        loop {
-            // println!("{}", cur_workflow.id);
-            let next_destination = cur_workflow.get_destination_for_part(&part)
-                .expect("No destination found!");
-            match next_destination {
-                Destination::Accept => return true,
-                Destination::Reject => return false,
-                Destination::SendTo(id) => {
-                    cur_workflow = self.0.get(id).expect("No next workflow found!");
-                }
-            }
-        }
-    }
-}
-
-impl WorkflowMap {
-    fn from_lines<B: BufRead>(lines: &mut Lines<B>) -> Self {
-        let mut map = HashMap::default();
-        for line_result in lines {
-            let line = line_result.unwrap();
-            if line.is_empty() {
-                break;
-            }
-            let workflow = Workflow::from_str(&line).unwrap();
-            map.insert(workflow.id.to_owned(), workflow);
-        }
-        Self(map)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
-    use crate::{Condition, Destination, Part, Property, Rule};
+    use crate::{Condition, Destination, Property, Rule, Part};
 
     #[test]
     fn check_condition_pass() {
