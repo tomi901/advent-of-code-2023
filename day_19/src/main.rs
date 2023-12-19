@@ -6,6 +6,8 @@ use std::io::{BufRead, BufReader, Lines};
 use std::str::FromStr;
 use regex_macro::regex;
 
+const STARTING_POINT: &str = "in";
+
 fn main() {
     part_1();
 }
@@ -15,7 +17,18 @@ fn part_1() {
     let mut lines = reader.lines();
     let workflow = WorkflowMap::from_lines(&mut lines);
 
-
+    let mut sum = 0;
+    for line_result in lines {
+        let part = line_result.unwrap().parse::<Part>().unwrap();
+        // print!("{:?} = ", part);
+        if workflow.check_accepted(&part) {
+            // println!("Accepted");
+            sum += part.values_sum();
+        } else {
+            // println!("Rejected");
+        }
+    }
+    println!("Sum: {sum}");
 }
 
 fn read_file() -> impl BufRead {
@@ -49,6 +62,7 @@ impl FromStr for Property {
 
 type XMAS = [usize; 4];
 
+#[derive(Default)]
 struct Part(XMAS);
 
 impl Debug for Part {
@@ -64,6 +78,30 @@ impl Part {
 
     fn get(&self, property: Property) -> usize {
         self.0[property as usize]
+    }
+
+    fn set(&mut self, property: Property, value: usize) {
+        self.0[property as usize] = value;
+    }
+
+    fn values_sum(&self) -> usize {
+        self.0.iter().sum()
+    }
+}
+
+impl FromStr for Part {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim_start_matches('{').trim_end_matches('}');
+        let mut part = Part::default();
+        for prop_value in trimmed.split(',') {
+            let mut prop_value_split = prop_value.split('=');
+            let property = prop_value_split.next().unwrap().parse::<Property>()?;
+            let value = prop_value_split.next().unwrap().parse::<usize>().unwrap();
+            part.set(property, value);
+        }
+        Ok(part)
     }
 }
 
@@ -131,10 +169,13 @@ impl Rule {
 
     pub fn check_condition_for_part(&self, part: &Part) -> bool {
         if self.condition.is_none() {
+            // println!("Sending directly to: {:?}", self.destination);
             return true;
         }
-        let Condition(property, expected, value) = self.condition.unwrap();
-        part.get(property).cmp(&value) == expected
+        let Condition(property, operation, value) = self.condition.unwrap();
+        let result = part.get(property).cmp(&value);
+        // println!("{:?} {:?} {:?} = {:?}", property, operation, value, result);
+        result == operation
     }
 }
 
@@ -144,10 +185,7 @@ impl FromStr for Rule {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains(':') {
             let mut split = s.split(':');
-            let condition = {
-                let condition_str = split.next().unwrap();
-                Condition(Property::A, Ordering::Less, 100)
-            };
+            let condition = split.next().unwrap().parse::<Condition>()?;
             let destination = Destination::from(split.next().unwrap());
             Ok(Self::with_condition(condition, destination))
         } else {
@@ -177,16 +215,33 @@ impl FromStr for Workflow {
         let id = captures.get(1).unwrap().as_str().to_owned();
 
         let payload = captures.get(2).unwrap().as_str();
-
-
+        let rules = payload.split(',').map(Rule::from_str).collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             id,
-            rules: vec![],
+            rules,
         })
     }
 }
 
 struct WorkflowMap(HashMap<String, Workflow>);
+
+impl WorkflowMap {
+    fn check_accepted(&self, part: &Part) -> bool {
+        let mut cur_workflow = self.0.get("in").expect("No \"in\" workflow.");
+        loop {
+            // println!("{}", cur_workflow.id);
+            let next_destination = cur_workflow.get_destination_for_part(&part)
+                .expect("No destination found!");
+            match next_destination {
+                Destination::Accept => return true,
+                Destination::Reject => return false,
+                Destination::SendTo(id) => {
+                    cur_workflow = self.0.get(id).expect("No next workflow found!");
+                }
+            }
+        }
+    }
+}
 
 impl WorkflowMap {
     fn from_lines<B: BufRead>(lines: &mut Lines<B>) -> Self {
