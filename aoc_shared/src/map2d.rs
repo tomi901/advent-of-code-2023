@@ -3,7 +3,6 @@ use std::io::BufRead;
 use crate::coords2d::Coords2D;
 
 pub type CharMap = Map2D<char>;
-
 #[derive(Clone)]
 pub struct Map2D<T> {
     tiles: Vec<T>,
