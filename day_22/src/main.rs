@@ -2,18 +2,15 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use itertools::Itertools;
 use nalgebra::Vector3;
-use nom::{
-    bytes::complete::tag,
-    character::complete::digit1,
-    sequence::tuple,
-    IResult,
-};
+use nom::{bytes::complete::tag, character::complete::digit1, sequence::tuple, IResult, Parser};
 use nom::character::complete::char;
 use nom::combinator::opt;
 
 fn main() {
-    part_1();
+    // part_1();
+    part_2();
 }
 
 fn part_1() {
@@ -26,8 +23,21 @@ fn part_1() {
     // }
     // println!("{:?}", map.positions().collect::<Vec<_>>());
     
-    let deletable = map.calculate_deletable_bricks();
-    println!("Deletable: {}", deletable.len());
+    let graph = map.create_support_graph();
+    let dangerous_count = graph.get_dangerous_node_indexes().count();
+    let deletable = map.bricks.len() - dangerous_count;
+    println!("Deletable: {}", deletable);
+}
+
+fn part_2() {
+    let mut map = BrickMap::from_reader(read_file());
+    map.sort_bricks();
+    map.apply_gravity();
+    
+    let graph = map.create_support_graph();
+    // println!("{graph:#?}");
+    let result = graph.calculate_biggest_deletion();
+    println!("Biggest deletion: {result}");
 }
 
 fn read_file() -> impl BufRead {
@@ -93,8 +103,10 @@ impl BrickMap {
         }
     }
     
-    fn check_collisions<'a>(&'a self, area: Bounds) -> impl Iterator<Item = &'a Bounds> + 'a {
-        self.bricks.iter().filter(move |&b| b.check_aabb(area))
+    fn check_collisions<'a>(&'a self, area: Bounds) -> impl Iterator<Item = (usize, &'a Bounds)> + 'a {
+        // We should be able to divide in chunks for performance, altough could lose the ability
+        // to return indexes. Maybe we should be able to return an id.
+        self.bricks.iter().enumerate().filter(move |(_, &b)| b.check_aabb(area))
     }
     
     fn sort_bricks(&mut self) {
@@ -105,33 +117,15 @@ impl BrickMap {
         self.bricks.iter().map(|b| b.pos)
     }
     
-    fn calculate_deletable_bricks(&self) -> HashSet<usize> {
-        let mut deletable = (0..self.bricks.len()).collect::<HashSet<_>>();
+    fn create_support_graph(&self) -> SupportGraph {
+        let mut graph = SupportGraph::with_length(self.bricks.len());
         for (i, brick) in self.bricks.iter().enumerate() {
-            if brick.pos.z <= 1 {
-                // println!("Brick {} supported by ground", i);
-                continue;
-            }
-            
-            let check_area = brick.get_below_area();
-            let supporters = self.bricks.iter()
-                .enumerate()
-                .filter(|(i, &b)| check_area.check_aabb(b))
-                .map(|(i, _)| i)
-                .collect::<Vec<_>>();
-
-            // println!("Brick {} {:?} supported by:", i, brick);
-            // println!("{:?}", supporters);
-            
-            if supporters.is_empty() {
-                panic!("Brick suspended in air!");
-            }
-            
-            if supporters.len() == 1 {
-                deletable.remove(&supporters[0]);
+            let below_area = brick.get_below_area();
+            for support in self.check_collisions(below_area).map(|(i, _)| i) {
+                graph.connect(support, i);
             }
         }
-        deletable
+        graph
     }
 }
 
@@ -205,6 +199,73 @@ impl Display for Bounds {
         let from = self.min();
         let to = self.max();
         write!(f, "{},{},{}~{},{},{}", from.x, from.y, from.z, to.x, to.y, to.z)
+    }
+}
+
+#[derive(Debug, Default)]
+struct SupportNode {
+    supporting: HashSet<usize>,
+    supported_by: HashSet<usize>,
+}
+
+#[derive(Debug, Default)]
+struct SupportGraph {
+    nodes: Vec<SupportNode>,
+}
+
+impl SupportGraph {
+    fn with_length(length: usize) -> Self {
+        let mut nodes = Vec::with_capacity(length);
+        for _ in 0..length {
+            nodes.push(SupportNode::default());
+        }
+        Self {
+            nodes,
+        }
+    }
+    
+    fn connect(&mut self, support: usize, supported: usize) {
+        self.nodes[supported].supported_by.insert(support);
+        self.nodes[support].supporting.insert(supported);
+    }
+    
+    fn get_nodes_with_1_support(&self) -> impl Iterator<Item = &SupportNode> + '_ {
+        self.nodes.iter().filter(|&n| n.supported_by.len() == 1)
+    }
+    
+    fn get_dangerous_node_indexes(&self) -> impl Iterator<Item = &usize> + '_ {
+        self.get_nodes_with_1_support().flat_map(|n| n.supported_by.iter()).unique()
+    }
+    
+    fn calculate_deletions_from(&self, index: usize) -> usize {
+        // println!("Calculating deletions from {index}");
+        let mut support_count = self.nodes.iter()
+            .map(|n| n.supported_by.len())
+            .collect::<Vec<_>>();
+        // println!("{support_count:?}");
+        
+        let mut to_delete = self.nodes[index].supporting.iter().collect::<Vec<_>>();
+        let mut deleted_count = 0;
+        while let Some(&delete_index) = to_delete.pop() {
+            //println!("Deleted a support from {delete_index}");
+            support_count[delete_index] -= 1;
+            // println!("{support_count:?}");
+            if support_count[delete_index] <= 0 {
+                // println!("Will also delete {delete_index}");
+                to_delete.extend(self.nodes[delete_index].supporting.iter());
+                deleted_count += 1;
+            }
+        }
+        // println!("Found {deleted_count} deletions");
+        deleted_count
+    }
+    
+    fn calculate_biggest_deletion(&self) -> usize {
+        self.get_dangerous_node_indexes()
+            .unique()
+            .map(|&i| self.calculate_deletions_from(i))
+            .max()
+            .unwrap_or(0)
     }
 }
 
