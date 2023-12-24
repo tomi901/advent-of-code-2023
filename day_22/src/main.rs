@@ -37,7 +37,7 @@ fn part_2() {
     let graph = map.create_support_graph();
     // println!("{graph:#?}");
     let result = graph.calculate_biggest_deletion();
-    println!("Biggest deletion: {result}");
+    println!("Deletion sum: {result}");
 }
 
 fn read_file() -> impl BufRead {
@@ -261,11 +261,9 @@ impl SupportGraph {
     }
     
     fn calculate_biggest_deletion(&self) -> usize {
-        self.get_dangerous_node_indexes()
-            .unique()
-            .map(|&i| self.calculate_deletions_from(i))
-            .max()
-            .unwrap_or(0)
+        (0..self.nodes.len())
+            .map(|i| self.calculate_deletions_from(i))
+            .sum::<usize>()
     }
 }
 
