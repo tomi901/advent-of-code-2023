@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::thread;
@@ -6,7 +7,8 @@ use aoc_shared::direction::Direction;
 use aoc_shared::map2d::Map2D;
 
 fn main() {
-    part_1();
+    // part_1();
+    part_2();
 }
 
 fn part_1() {
@@ -28,8 +30,15 @@ fn part_1() {
     println!("Result: {result:?}");
 }
 
+fn part_2() {
+    let map = TileMap::try_from_reader(&mut read_file());
+    println!("Building node graph.");
+    let node_graph = map.calculate_node_graph();
+    println!("{} nodes:\n{:#?}", node_graph.nodes.len(), node_graph);
+}
+
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_23/input.txt");
+    let path = std::env::current_dir().unwrap().join("day_23/input_test.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -65,6 +74,14 @@ impl Tile {
             Tile::Ground => true,
             Tile::Forest => false,
             Tile::Slope(d) => *d == direction, 
+        }
+    }
+
+    fn is_any_walkable(&self) -> bool {
+        // println!("Checking {:?}", self);
+        match self {
+            Tile::Forest => false,
+            _ => true,
         }
     }
 }
@@ -135,6 +152,63 @@ impl TileMap {
         }
     }
 
+    fn find_longest_path_ignoring_slopes(
+        &self,
+        from: Coords2D,
+        direction: Direction,
+        destination: Coords2D,
+        visited: &mut HashSet<Coords2D>,
+    ) -> Option<usize> {
+        // println!("Starting path from {:?} towards {:?}", from, direction);
+        let mut cur_pos = from;
+        let mut steps = 0;
+        let left = direction.turn_left();
+        let right = direction.turn_right();
+        loop {
+            // println!("- {:?}", cur_pos);
+            if cur_pos == destination {
+                return Some(steps);
+            }
+            
+            if visited.contains(&cur_pos) {
+                return None;
+            }
+            visited.insert(cur_pos);
+
+            // Here the paths potentially branch and differ
+            let left_walk = self.is_any_walkable_tile_from(cur_pos, left);
+            let right_walk = self.is_any_walkable_tile_from(cur_pos, right);
+            if left_walk.is_some() || right_walk.is_some() {
+                let branches = [
+                    left_walk.map(|branch| (left, branch)),
+                    right_walk.map(|branch| (right, branch)),
+                    cur_pos.try_move_one(direction).map(|branch| (direction, branch)),
+                ];
+                // println!("Branching: {:?}", branches);
+                return branches
+                    .iter()
+                    .flatten()
+                    .map(|(d, b)| {
+                        let mut local_visited = visited.clone();
+                        self.find_longest_path_ignoring_slopes(*b, *d, destination, &mut local_visited)
+                    })
+                    .flatten()
+                    .max()
+                    .map(|max_branch| max_branch + steps + 1)
+            }
+
+            if !self.is_any_walkable(cur_pos) {
+                return None;
+            }
+
+            cur_pos = match cur_pos.try_move_one(direction) {
+                Some(p) => p,
+                None => return None,
+            };
+            steps += 1;
+        }
+    }
+
     fn get_walkable_tile_from(&self, point: Coords2D, direction: Direction) -> Option<Coords2D> {
         point.try_move_one(direction)
             .and_then(|p| self.is_walkable(point, direction).then_some(p))
@@ -143,4 +217,122 @@ impl TileMap {
     fn is_walkable(&self, point: Coords2D, direction: Direction) -> bool {
         self.0.get(point).is_some_and(|t| t.is_walkable(direction))
     }
+
+    fn is_any_walkable_tile_from(&self, point: Coords2D, direction: Direction) -> Option<Coords2D> {
+        point.try_move_one(direction)
+            .filter(|&p| self.is_any_walkable(p))
+    }
+
+    fn is_any_walkable(&self, point: Coords2D) -> bool {
+        // println!("Testing {:?} ({:?})", point, self.0.get(point));
+        self.0.get(point).is_some_and(|t| t.is_any_walkable())
+    }
+
+    fn calculate_node_graph(&self) -> PointsGraph {
+        let mut graph = PointsGraph::default();
+        let starting_node = self.get_start_position().expect("No starting position.");
+        graph.add_node(starting_node);
+        self.calculate_node_graph_internal(starting_node, Direction::South, &mut graph);
+        graph
+    }
+    
+    fn calculate_node_graph_internal(&self, from: Coords2D, direction: Direction, graph: &mut PointsGraph) {
+        // println!("Starting node calculation {:?} towards {:?}", from, direction);
+        let mut cur_pos = from.try_move_one(direction).unwrap();
+        let mut cur_direction = direction;
+        let mut steps = 1;
+        
+        loop {
+            let branches = self.get_possible_branches(cur_pos, cur_direction);
+            // println!("{:?} -> {:?}", (cur_pos, cur_direction), branches.iter().flatten().collect::<Vec<_>>());
+            
+            let branches_count = branches.iter().flatten().count();
+            if branches_count > 1 {
+                let new_node = cur_pos;
+                let node_inserted = graph.add_node(new_node);
+                graph.set_two_way_connection(from, new_node, steps);
+                if node_inserted {
+                    for &(_, new_dir) in branches.iter().flatten() {
+                        // println!("{cur_pos} -> {new_dir:?}");
+                        self.calculate_node_graph_internal(
+                            new_node,
+                            new_dir,
+                            graph,
+                        );
+                    }
+                }
+                return;
+            }
+            
+            if branches_count == 0 {
+                graph.add_node(cur_pos);
+                graph.set_two_way_connection(from, cur_pos, steps);
+                return;
+            }
+            
+            let &(next_pos, next_direction) = branches.iter().flatten().next().unwrap();
+            cur_pos = next_pos;
+            cur_direction = next_direction;
+            
+            steps += 1;
+        }
+    }
+    
+    fn get_possible_branches(
+        &self, from: Coords2D, direction: Direction,
+    ) -> [Option<(Coords2D, Direction)>; 3] {
+        [
+            self.try_get_possible_path_towards(from, direction),
+            self.try_get_possible_path_towards(from, direction.turn_left()),
+            self.try_get_possible_path_towards(from, direction.turn_right()),
+        ]
+    }
+    
+    fn try_get_possible_path_towards(
+        &self, from: Coords2D, direction: Direction,
+    ) -> Option<(Coords2D, Direction)> {
+        self.is_any_walkable_tile_from(from, direction)
+            .map(|p| (p, direction))
+    }
+}
+
+#[derive(Debug, Default)]
+struct PointsGraph {
+    nodes: HashMap<Coords2D, NodeInfo>
+}
+
+impl PointsGraph {
+    fn add_node(&mut self, key: Coords2D) -> bool {
+        if self.nodes.contains_key(&key) {
+            return false;
+        }
+        self.nodes.insert(key, NodeInfo::default());
+        return true;
+    }
+    
+    fn contains_key(&self, key: Coords2D) -> bool {
+        self.nodes.contains_key(&key)
+    }
+
+    fn set_two_way_connection(&mut self, a: Coords2D, b: Coords2D, cost: usize) {
+        if !self.nodes.contains_key(&a) {
+            panic!("Point \"a\" not found.");
+        }
+        if !self.nodes.contains_key(&b) {
+            panic!("Point \"b\" not found.");
+        }
+        self.nodes.get_mut(&a).unwrap().connections.insert(b, cost);
+        self.nodes.get_mut(&b).unwrap().connections.insert(a, cost);
+    }
+    
+    fn find_longest_path(&self, from: Coords2D, destination: Coords2D) -> Option<usize> {
+        // Maybe we can create a Dijsktra Algorithm using
+        // an inverted priority queue or cost.
+        todo!()
+    }
+}
+
+#[derive(Debug, Default)]
+struct NodeInfo {
+    connections: HashMap<Coords2D, usize>,
 }
