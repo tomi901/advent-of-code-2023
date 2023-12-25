@@ -1,12 +1,12 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use nalgebra::Vector3;
+use std::ops::RangeInclusive;
+use nalgebra::{Vector2, Vector3};
 use nom::IResult;
 use nom::bytes::complete::tag;
 use nom::character::complete::{char, digit1, one_of, space0};
 use nom::combinator::{opt, recognize};
-use nom::multi::many0;
 use nom::sequence::tuple;
 
 fn main() {
@@ -15,11 +15,17 @@ fn main() {
 
 fn part_1() {
     let hailstorm = Hailstorm::from_reader(&mut read_file());
-    println!("{:#?}", hailstorm);
+    // println!("{:#?}", hailstorm);
+    // println!("{:#?}", hailstorm.hailstones.iter().map(Hailstone::as_xy_line).collect::<Vec<_>>());
+    
+    let range: RangeInclusive<i64> = 200000000000000..=400000000000000;
+    let range_f64 = (*range.start() as f64)..=(*range.end() as f64);
+    let crossings = hailstorm.get_crossings_count(&range_f64);
+    println!("Result: {}", crossings)
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_24/input_test.txt");
+    let path = std::env::current_dir().unwrap().join("day_24/input.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -75,6 +81,25 @@ impl Hailstone {
         let (remaining, num) = parser(s)?;
         Ok((remaining, num.parse().unwrap()))
     }
+    
+    fn as_xy_line(&self) -> Line2D {
+        let slope = (self.velocity.y as f64) / (self.velocity.x as f64);
+        let bias = (self.position.y as f64) - (slope * (self.position.x as f64));
+        let range = if self.velocity.x > 0 {
+            (self.position.x as f64)..=f64::INFINITY
+        } else {
+            f64::NEG_INFINITY..=(self.position.x as f64)
+        };
+        Line2D {
+            slope,
+            bias,
+            range,
+        }
+    }
+
+    fn get_crossing(&self, other: &Self) -> Option<Vector2<f64>> {
+        self.as_xy_line().get_crossing(&other.as_xy_line())
+    }
 }
 
 impl Display for Hailstone {
@@ -90,10 +115,31 @@ impl Debug for Hailstone {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Line2D {
     slope: f64,
     bias: f64,
+    range: RangeInclusive<f64>,
+}
+
+impl Line2D {
+    fn contains(&self, x: f64) -> bool {
+        self.range.contains(&x)
+    }
+    
+    fn value_at(&self, x: f64) -> Option<f64> {
+        self.contains(x).then(|| (self.slope * x) + self.bias)
+    }
+    
+    fn get_crossing(&self, other: &Self) -> Option<Vector2<f64>> {
+        let slope_diff = self.slope - other.slope;
+        let bias_diff = other.bias - self.bias;
+        // println!("Slope diff: {slope_diff}");
+        // println!("Bias diff: {bias_diff}");
+        let cross_x = bias_diff / slope_diff;
+        (self.contains(cross_x) && other.contains(cross_x))
+            .then(|| Vector2::new(cross_x, self.value_at(cross_x).unwrap()))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -112,5 +158,21 @@ impl Hailstorm {
         Self {
             hailstones,
         }
+    }
+    
+    fn get_crossings_count(&self, in_range: &RangeInclusive<f64>) -> usize {
+        let mut count = 0;
+        for i in 0..self.hailstones.len() {
+            let a = &self.hailstones[i];
+            for j in (i + 1)..self.hailstones.len() {
+                let b = &self.hailstones[j];
+                let crossing = a.get_crossing(b);
+                // println!("Crossing ({i} - {j}) at: {crossing:?}");
+                if crossing.is_some_and(|c| in_range.contains(&c.x) && in_range.contains(&c.y)) {
+                    count += 1;
+                }
+            }
+        }
+        count
     }
 }
