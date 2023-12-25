@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -34,11 +35,17 @@ fn part_2() {
     let map = TileMap::try_from_reader(&mut read_file());
     println!("Building node graph.");
     let node_graph = map.calculate_node_graph();
-    println!("{} nodes:\n{:#?}", node_graph.nodes.len(), node_graph);
+    println!("{} nodes:", node_graph.nodes.len());
+    // println!("{:#?}", node_graph);
+
+    let start = map.get_start_position().unwrap();
+    let end = map.get_end_position().unwrap();
+    let longest = node_graph.find_longest_path(start, end);
+    println!("Result: {longest:?}");
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_23/input_test.txt");
+    let path = std::env::current_dir().unwrap().join("day_23/input.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -325,14 +332,53 @@ impl PointsGraph {
         self.nodes.get_mut(&b).unwrap().connections.insert(a, cost);
     }
     
-    fn find_longest_path(&self, from: Coords2D, destination: Coords2D) -> Option<usize> {
-        // Maybe we can create a Dijsktra Algorithm using
-        // an inverted priority queue or cost.
-        todo!()
+    fn find_longest_path(&self, from: Coords2D, destination: Coords2D) -> Option<(usize, Vec<Coords2D>)> {
+        let mut visited = HashSet::default();
+        self.find_longest_path_internal(from, destination, &mut visited)
+    }
+
+    fn find_longest_path_internal(
+        &self, from: Coords2D, destination: Coords2D, visited: &mut HashSet<Coords2D>,
+    ) -> Option<(usize, Vec<Coords2D>)> {
+        visited.insert(from);
+
+        let mut max_found: Option<usize> = None;
+        let cur_node = self.nodes.get(&from).expect("Node with given key not found.");
+        let mut path = vec![];
+        for (&next_pos, &cost) in cur_node.connections.iter() {
+            if next_pos == destination {
+                path.clear();
+                path.push(from);
+                path.push(destination);
+                return Some((cost, path));
+            }
+
+            if visited.contains(&next_pos) {
+                continue;
+            }
+
+            if let Some(found_path) = self.find_longest_path_internal(next_pos, destination, &mut visited.clone()) {
+                let actual_cost = cost + found_path.0;
+                if max_found.is_none() || max_found.is_some_and(|m| m <= actual_cost) {
+                    // println!("{:?} -> {} ({} + {})", max_found, actual_cost, cost, found_path.0);
+                    max_found = Some(actual_cost);
+                    path.clear();
+                    path.push(from);
+                    path.extend(found_path.1);
+                }
+            }
+        }
+        max_found.map(|m| (m, path))
     }
 }
 
 #[derive(Debug, Default)]
 struct NodeInfo {
     connections: HashMap<Coords2D, usize>,
+}
+
+#[derive(Debug, Default)]
+struct NodeBreadcrumb {
+    total_cost: usize,
+    previous: Option<Coords2D>,
 }
