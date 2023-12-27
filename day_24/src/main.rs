@@ -16,7 +16,7 @@ fn main() {
 fn part_1() {
     let hailstorm = Hailstorm::from_reader(&mut read_file());
     // println!("{:#?}", hailstorm);
-    // println!("{:#?}", hailstorm.hailstones.iter().map(Hailstone::as_xy_line).collect::<Vec<_>>());
+    println!("{:#?}", hailstorm.hailstones.iter().map(Hailstone::as_xy_line).collect::<Vec<_>>());
     
     let range: RangeInclusive<i64> = 200000000000000..=400000000000000;
     let range_f64 = (*range.start() as f64)..=(*range.end() as f64);
@@ -25,7 +25,7 @@ fn part_1() {
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_24/input.txt");
+    let path = std::env::current_dir().unwrap().join("day_24/input_test.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
