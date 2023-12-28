@@ -7,6 +7,14 @@ use petgraph::prelude::{EdgeRef, StableUnGraph};
 use petgraph::stable_graph::Edges;
 use petgraph::Undirected;
 
+// Possible algorithm to discover which edges to remove first:
+// Make each node have a weight value which is a signed int
+// 1. For each node and edge connected to it (We will call this node origin):
+//   a. Add 1 to the edge value
+//   b. The other node of the origin edge can be called "other".
+//   c. Get edges of other that are not our origin edge and subtract -1 to that edge value
+// Once done the edges with the lowest value should be the "weakest" ones or the ones we should cut first.
+
 fn main() {
     part_1();
 }
