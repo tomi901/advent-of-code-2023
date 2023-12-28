@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use petgraph::csr::EdgeIndex;
 use petgraph::graph::NodeIndex;
 use petgraph::dot::{Dot, Config};
 use petgraph::prelude::{EdgeRef, StableUnGraph};
+use petgraph::stable_graph::Edges;
+use petgraph::Undirected;
 
 fn main() {
     part_1();
@@ -12,24 +13,24 @@ fn main() {
 
 fn part_1() {
     let mut graph = Graph::from_reader(&mut read_file());
-    
-    // graph.remove_edge("bvb", "cmg");
-    // graph.remove_edge("hfx", "pzl");
-    // graph.remove_edge("jqt", "nvd");
+    // println!("{:?}", graph.graphviz_representation());
 
-    println!("{:?}", graph.graphviz_representation());
-    
-    let clusters = graph.get_clusters();
-    // println!("{:#?}", graph.get_clusters());
-    let clusters_product = clusters
-        .iter()
-        .map(|c| c.len())
-        .reduce(|acc, e| acc * e);
-    println!("{:?}", clusters_product);
+    // Resolved with graphviz, I wish I knew how to programmatically solve this
+    graph.remove_edge("gzr", "qnz");
+    graph.remove_edge("pgz", "hgk");
+    graph.remove_edge("lmj", "xgs");
+
+    let largest_connection = graph.get_largest_amount_of_connections().unwrap();
+    println!("Largest connection is {}", largest_connection);
+
+    let clusters = graph.get_clusters(|e| true);
+    let cluster_counts= clusters.iter().map(|c| c.len()).collect::<Vec<_>>();
+    println!("{:?}", cluster_counts);
+    println!("Result: {:?}", cluster_counts.into_iter().reduce(|acc, e| acc * e));
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_25/input_test.txt");
+    let path = std::env::current_dir().unwrap().join("day_25/input.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -84,8 +85,14 @@ impl Graph {
     fn graphviz_representation(&self) -> Dot<&StableUnGraph<String, ()>> {
         Dot::with_config(&self.graph, &[Config::EdgeNoLabel])
     }
+
+    fn get_largest_amount_of_connections(&self) -> Option<usize> {
+        self.graph.node_indices()
+            .map(|n| self.graph.edges(n).count())
+            .max()
+    }
     
-    fn get_clusters(&self) -> Vec<HashSet<NodeIndex>> {
+    fn get_clusters<P: Fn(Edges<(), Undirected>) -> bool>(&self, filter: P) -> Vec<HashSet<NodeIndex>> {
         // This is kinda of a mess, I'm pretty sure it can be more readable
         let mut queue = VecDeque::default();
         let mut clusters = Vec::default();
@@ -98,14 +105,7 @@ impl Graph {
             // println!("Processing from {:?}", self.graph.node_weight(from_node));
             
             let mut current_cluster = HashSet::default();
-            current_cluster.insert(from_node);
-            already_processed.insert(from_node);
-            
-            let next = self.graph.edges(from_node)
-                .map(|r| [r.source(), r.target()])
-                .flatten()
-                .filter(|n| !already_processed.contains(&n));
-            queue.extend(next);
+            queue.push_front(from_node);
             while let Some(next_node) = queue.pop_front() {
                 if already_processed.contains(&next_node) {
                     continue;
@@ -113,11 +113,16 @@ impl Graph {
                 current_cluster.insert(next_node);
                 already_processed.insert(next_node);
 
-                let next = self.graph.edges(next_node)
-                    .map(|r| [r.source(), r.target()])
-                    .flatten()
+                let next_edges = self.graph.edges(next_node);
+                // println!("{} has {} edge/s.", self.graph.node_weight(next_node).unwrap(), next_edges.clone().count());
+                if !filter(next_edges.clone()) {
+                    continue;
+                }
+
+                let next_nodes = next_edges
+                    .map(|r| r.target())
                     .filter(|n| !already_processed.contains(&n));
-                queue.extend(next);
+                queue.extend(next_nodes);
             }
             // println!("Found cluster of {} nodes.", current_cluster.len());
             clusters.push(current_cluster);
