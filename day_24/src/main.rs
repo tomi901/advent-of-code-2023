@@ -10,7 +10,8 @@ use nom::combinator::{opt, recognize};
 use nom::sequence::tuple;
 
 fn main() {
-    part_1();
+    // part_1();
+    part_2();
 }
 
 fn part_1() {
@@ -21,7 +22,14 @@ fn part_1() {
     let range: RangeInclusive<i64> = 200000000000000..=400000000000000;
     let range_f64 = (*range.start() as f64)..=(*range.end() as f64);
     let crossings = hailstorm.get_crossings_count(&range_f64);
-    println!("Result: {}", crossings)
+    println!("Result: {}", crossings);
+}
+
+fn part_2() {
+    let hailstorm = Hailstorm::from_reader(&mut read_file());
+    println!("{:#?}", hailstorm.hailstones);
+    let relative = hailstorm.clone_relative_to_stone(0);
+    println!("{:#?}", relative.hailstones);
 }
 
 fn read_file() -> impl BufRead {
@@ -43,6 +51,10 @@ impl Hailstone {
             position,
             velocity,
         }
+    }
+    
+    fn position_at(&self, time: i64) -> Vector3<i64> {
+        self.position + (self.velocity * time)
     }
     
     fn parse_str(s: &str) -> IResult<&str, Self> {
@@ -174,5 +186,15 @@ impl Hailstorm {
             }
         }
         count
+    }
+    
+    fn clone_relative_to_stone(&self, index: usize) -> Self {
+        let relative_to = &self.hailstones[index];
+        let mut new = self.clone();
+        for hailstone in new.hailstones.iter_mut() {
+            hailstone.position -= relative_to.position;
+            hailstone.velocity -= relative_to.velocity;
+        }
+        new
     }
 }
