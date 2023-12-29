@@ -36,7 +36,7 @@ fn part_2() {
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_24/input.txt");
+    let path = std::env::current_dir().unwrap().join("day_24/input_test.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -232,55 +232,45 @@ impl Hailstorm {
         count
     }
     
-    fn clone_relative_to_stone(&self, index: usize) -> Self {
-        let relative_to = &self.hailstones[index];
+    fn clone_relative_to(&self, hailstone: &Hailstone) -> Self {
         let mut new = self.clone();
-        for hailstone in new.hailstones.iter_mut() {
-            hailstone.position -= relative_to.position;
-            hailstone.velocity -= relative_to.velocity;
+        for h in new.hailstones.iter_mut() {
+            h.position -= hailstone.position;
+            h.velocity -= hailstone.velocity;
         }
         new
     }
     
     fn calculate_intersection_body(&self) -> Hailstone {
-        let from_hailstone = &self.hailstones[0];
-        let to_hailstone = &self.hailstones[1];
-        let test_hailstones = &self.hailstones[2..4];
+        let relative_hailstone = &self.hailstones[0];
+        let relative_space = self.clone_relative_to(relative_hailstone);
+
+        let target_hailstone = &relative_space.hailstones[1];
+        let test_hailstone = &relative_space.hailstones[1];
         
-        // Breadth first should make this more performant
-        const LIMIT: i64 = 100_000;
-        for a_time in 1..=LIMIT {
-            let a_position = from_hailstone.position_at(a_time);
-            for b_time in 1..=LIMIT {
-                if a_time == b_time {
-                    continue;
-                }
-
-                let b_position = to_hailstone.position_at(b_time);
-                let displacement = b_position - a_position;
-                // println!("{:?}: Testing displacement {:?} ({:?})", (a_time, b_time), displacement, (a_position, b_position));
-
-                let time_diff = b_time - a_time;
-                let estimated_velocity = match exact_division(displacement, time_diff) {
-                    Some(v) => v,
-                    None => continue,
-                };
-
-                let estimated_position = a_position - (estimated_velocity * a_time);
-                let estimated_stone = Hailstone::new(estimated_position, estimated_velocity);
-                // println!("{:?}: From {} to {}", (a_time, b_time), estimated_stone, test_hailstone);
-
-                // let other_hit_time_res = estimated_stone
-                //     .try_to_get_intersection_time(&test_hailstone);
-                // println!("{} / {}: Intersection at: {:?}", a_time, b_time, other_hit_time);
-                let all_match = test_hailstones.iter()
-                    .all(|h| estimated_stone.try_to_get_intersection_time(h).is_some());
-                if all_match {
-                    return estimated_stone;
-                }
+        const LIMIT: i64 = 5;
+        for relative_time in 1..=LIMIT {
+            let target_position = target_hailstone.position_at(relative_time);
+            println!("Time {}: {:?}", relative_time, target_position);
+            
+            let lowest_factor = lowest_factor_candidate(target_position);
+            let possible_velocities = (1..=lowest_factor).flat_map(|i| try_divide(target_position, i));
+            for velocity in possible_velocities {
+                println!("{:?}", velocity);
             }
         }
-
-        panic!("Limit exceeded, intersection probably doesn't exist.");
+        
+        Hailstone::new(Vector3::zeros(), Vector3::zeros())
     }
+}
+
+fn lowest_factor_candidate(vector: Vector3<i64>) -> i64 {
+    vector.iter().cloned().filter(|&n| n != 0).map(i64::abs).min().unwrap_or(1)
+}
+
+fn try_divide(v: Vector3<i64>, divisor: i64) -> Option<Vector3<i64>> {
+    if v.x % divisor != 0 || v.y % divisor != 0 || v.z % divisor != 0 {
+        return None;
+    }
+    Some(v / divisor)
 }
