@@ -27,16 +27,40 @@ fn part_1() {
 
 fn part_2() {
     let hailstorm = Hailstorm::from_reader(&mut read_file());
-    println!("{:#?}", hailstorm.hailstones);
-    let relative = hailstorm.clone_relative_to_stone(0);
-    println!("{:#?}", relative.hailstones);
+    // println!("{:#?}", hailstorm.hailstones);
+
+    let rock = hailstorm.calculate_intersection_body();
+    println!("Rock estimated to be {}", rock);
+    let product: i64 = rock.position.iter().cloned().sum();
+    println!("Result: {:?}", product);
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_24/input_test.txt");
+    let path = std::env::current_dir().unwrap().join("day_24/input.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
+}
+
+fn exact_division(vector: Vector3<i64>, divisor: i64) -> Option<Vector3<i64>> {
+    if vector.x % divisor != 0 || vector.y % divisor != 0 || vector.z % divisor != 0 {
+        return None;
+    }
+    Some(Vector3::new(vector.x / divisor, vector.y / divisor, vector.z / divisor))
+}
+
+fn try_to_get_dimension_intersection_time(a_pos: i64, a_vel: i64, b_pos: i64, b_vel: i64) -> Option<i64> {
+    let vel_diff = a_vel - b_vel;
+    if vel_diff == 0 {
+        return None;
+    }
+    let pos_diff = b_pos - a_pos;
+    if pos_diff % vel_diff != 0 {
+        return None;
+    }
+    let result = pos_diff / vel_diff;
+    // println!("{result}");
+    Some(result)
 }
 
 #[derive(Clone)]
@@ -51,6 +75,10 @@ impl Hailstone {
             position,
             velocity,
         }
+    }
+    
+    fn from_velocity(velocity: Vector3<i64>) -> Self {
+        Self::new(Vector3::zeros(), velocity)
     }
     
     fn position_at(&self, time: i64) -> Vector3<i64> {
@@ -111,6 +139,22 @@ impl Hailstone {
 
     fn get_crossing(&self, other: &Self) -> Option<Vector2<f64>> {
         self.as_xy_line().get_crossing(&other.as_xy_line())
+    }
+    
+    fn try_to_get_intersection_time(&self, other: &Self) -> Option<i64> {
+        let x_result = try_to_get_dimension_intersection_time(
+            self.position.x, self.velocity.x, other.position.x, other.velocity.x,
+        );
+        let y_result = try_to_get_dimension_intersection_time(
+            self.position.y, self.velocity.y, other.position.y, other.velocity.y,
+        );
+        let z_result = try_to_get_dimension_intersection_time(
+            self.position.z, self.velocity.z, other.position.z, other.velocity.z,
+        );
+        match (x_result, y_result, z_result) {
+            (Some(x), Some(y), Some(z)) if x == y && y == z => Some(x),
+            _ => None,
+        }
     }
 }
 
@@ -196,5 +240,47 @@ impl Hailstorm {
             hailstone.velocity -= relative_to.velocity;
         }
         new
+    }
+    
+    fn calculate_intersection_body(&self) -> Hailstone {
+        let from_hailstone = &self.hailstones[0];
+        let to_hailstone = &self.hailstones[1];
+        let test_hailstones = &self.hailstones[2..4];
+        
+        // Breadth first should make this more performant
+        const LIMIT: i64 = 100_000;
+        for a_time in 1..=LIMIT {
+            let a_position = from_hailstone.position_at(a_time);
+            for b_time in 1..=LIMIT {
+                if a_time == b_time {
+                    continue;
+                }
+
+                let b_position = to_hailstone.position_at(b_time);
+                let displacement = b_position - a_position;
+                // println!("{:?}: Testing displacement {:?} ({:?})", (a_time, b_time), displacement, (a_position, b_position));
+
+                let time_diff = b_time - a_time;
+                let estimated_velocity = match exact_division(displacement, time_diff) {
+                    Some(v) => v,
+                    None => continue,
+                };
+
+                let estimated_position = a_position - (estimated_velocity * a_time);
+                let estimated_stone = Hailstone::new(estimated_position, estimated_velocity);
+                // println!("{:?}: From {} to {}", (a_time, b_time), estimated_stone, test_hailstone);
+
+                // let other_hit_time_res = estimated_stone
+                //     .try_to_get_intersection_time(&test_hailstone);
+                // println!("{} / {}: Intersection at: {:?}", a_time, b_time, other_hit_time);
+                let all_match = test_hailstones.iter()
+                    .all(|h| estimated_stone.try_to_get_intersection_time(h).is_some());
+                if all_match {
+                    return estimated_stone;
+                }
+            }
+        }
+
+        panic!("Limit exceeded, intersection probably doesn't exist.");
     }
 }
