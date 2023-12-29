@@ -1,6 +1,8 @@
+use std::collections::hash_map::RandomState;
+use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::ops::RangeInclusive;
 use nalgebra::{Vector2, Vector3};
 use nom::IResult;
@@ -8,10 +10,13 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{char, digit1, one_of, space0};
 use nom::combinator::{opt, recognize};
 use nom::sequence::tuple;
+use num_integer::Roots;
 
 fn main() {
     // part_1();
     part_2();
+    // let set = get_abs_factors(900).collect::<HashSet<_>>();
+    // println!("Factors: ({}) {:?}", set.len(), &set);
 }
 
 fn part_1() {
@@ -25,11 +30,14 @@ fn part_1() {
     println!("Result: {}", crossings);
 }
 
+// Answer based on:
+// https://github.com/yongjun21/advent-of-code/blob/master/2023/day24.js#L2
+// I tried to copy the least amount of code and tried to work on my own
 fn part_2() {
     let hailstorm = Hailstorm::from_reader(&mut read_file());
     // println!("{:#?}", hailstorm.hailstones);
 
-    let rock = hailstorm.calculate_intersection_body();
+    let rock = hailstorm.calculate_start();
     println!("Rock estimated to be {}", rock);
     let product: i64 = rock.position.iter().cloned().sum();
     println!("Result: {:?}", product);
@@ -40,6 +48,16 @@ fn read_file() -> impl BufRead {
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
+}
+
+fn get_abs_factors(n: i64) -> impl Iterator<Item = i64> {
+    let n_abs = n.abs();
+    let sqrt = n_abs.sqrt();
+    let upper = sqrt + 1;
+    // println!("{}", upper);
+    (1..upper).filter_map(move |i| (n_abs % i == 0).then(|| [i, n_abs / i]))
+        .flatten()
+        .chain((upper * upper == n_abs).then_some(upper))
 }
 
 fn exact_division(vector: Vector3<i64>, divisor: i64) -> Option<Vector3<i64>> {
@@ -83,6 +101,10 @@ impl Hailstone {
     
     fn add(&self, other: &Self) -> Self {
         Hailstone::new(self.position + other.position, self.velocity + other.velocity)
+    }
+
+    fn with_added_velocity(&self, velocity: Vector3<i64>) -> Self {
+        Hailstone::new(self.position, self.velocity + velocity)
     }
     
     fn position_at(&self, time: i64) -> Vector3<i64> {
@@ -245,57 +267,79 @@ impl Hailstorm {
         new
     }
     
-    fn calculate_intersection_body(&self) -> Hailstone {
-        let reference_hailstone = &self.hailstones[0];
-        let relative_space = self.clone_relative_to(reference_hailstone);
-
-        let target_hailstone = &relative_space.hailstones[1];
-        let test_hailstone = &relative_space.hailstones[2];
-        
-        const LIMIT: i64 = 100_000;
-        for test_time in 1..=LIMIT {
-            let target_position = target_hailstone.position_at(test_time);
-            let lowest_factor = lowest_factor_candidate(target_position);
-            println!("Time {}: {:?} (Lowest factor: {})", test_time, target_position, lowest_factor);
-            
-            let possible_velocities = (1..=lowest_factor).flat_map(|i| try_divide(target_position, i));
-            for velocity in possible_velocities {
-                println!("Velocity: {:?}", velocity);
+    fn calculate_start(&self) -> Hailstone {
+        let mut result_candidates: [HashSet<i64, _>; 3] = [HashSet::default(), HashSet::default(), HashSet::default()];
+        'outer: for i in 0..self.hailstones.len() {
+            let a = &self.hailstones[i];
+            for j in (i + 1)..self.hailstones.len() {
+                let b = &self.hailstones[j];
+                for dimension in 0..3 {
+                    let ref mut cur_candidates = result_candidates[dimension];
+                    if cur_candidates.len() == 1 {
+                        continue;
+                    }
+                    
+                    let velocity_diff = a.velocity[dimension] - b.velocity[dimension];
+                    if velocity_diff != 0 {
+                        continue;
+                    }
+                    
+                    let velocity = a.velocity[dimension];
+                    let position_diff = a.position[dimension] - b.position[dimension];
+                    let mut new_candidates = get_abs_factors(position_diff)
+                        .map(|f| [velocity + f, velocity - f])
+                        .flatten();
+                    
+                    if cur_candidates.len() > 1 {
+                        let mut new_candidates_lookup = new_candidates.collect::<HashSet<i64>>();
+                        cur_candidates.retain(|c| new_candidates_lookup.contains(c));
+                    } else {
+                        cur_candidates.extend(new_candidates);
+                    }
+                }
                 
-                let (relative_start, test_intercept) =
-                    match try_to_find_interception(test_hailstone, target_position, velocity, test_time) {
-                        Some(x) => x,
-                        None => continue,
-                    };
-
-                // println!("Test intercepted at: {}", test_intercept);
-                // println!("Relative: {}", relative_start);
-                
-                let absolute_start = relative_start.add(reference_hailstone);
-                return absolute_start;
+                if all_found(&result_candidates) {
+                    break 'outer;
+                }
             }
         }
         
-        panic!("Not found, try increasing the limit at your risk.");
-        
-        fn try_to_find_interception(
-            target: &Hailstone, from: Vector3<i64>, velocity: Vector3<i64>, time: i64,
-        ) -> Option<(Hailstone, i64)> {
-            // Assuming we already passed (0, 0)
-            let outgoing = Hailstone::new(from - (velocity * time), velocity);
-            match target.try_to_get_intersection_time(&outgoing) {
-                Some(t) => return Some((outgoing, t)),
-                None => {}
-            }
-
-            // Assuming we didn't pass (0, 0) yet
-            let incoming = Hailstone::new(from + (velocity * time), -velocity);
-            match target.try_to_get_intersection_time(&incoming) {
-                Some(t) => return Some((incoming, t)),
-                None => None,
-            }
+        if !all_found(&result_candidates) {
+            panic!("Multiple candidates found, not supported yet! {:?}", &result_candidates);
         }
+
+        let found_velocity = as_vector3(&result_candidates);
+        println!("{:?}", found_velocity);
+
+        let hailstone_a = self.hailstones[0].with_added_velocity(-found_velocity);
+        let hailstone_b = self.hailstones[1].with_added_velocity(-found_velocity);
+        
+        // println!("Solving: {} and {}", hailstone_a, hailstone_b);
+        
+        // We could probably do this without floating points
+        let intersection = hailstone_a.get_crossing(&hailstone_b)
+            .expect("No intersection found for this velocity.");
+        println!("Intersection found at: {}", intersection);
+
+        let a_time = (intersection.x as i64 - hailstone_a.position.x) / hailstone_a.velocity.x;
+        let a_time_1 = (intersection.y as i64 - hailstone_a.position.y) / hailstone_a.velocity.y;
+        println!("{:?}", (a_time, a_time_1));
+        let position = hailstone_a.position_at(a_time);
+        
+        Hailstone::new(position, found_velocity)
     }
+}
+
+fn all_found(candidates: &[HashSet<i64>]) -> bool {
+    candidates.iter().all(|c| c.len() == 1)
+}
+
+fn as_vector3(candidates: &[HashSet<i64>; 3]) -> Vector3<i64> {
+    Vector3::new(
+        candidates[0].iter().next().unwrap().clone(),
+        candidates[1].iter().next().unwrap().clone(),
+        candidates[2].iter().next().unwrap().clone(),
+    )
 }
 
 fn lowest_factor_candidate(vector: Vector3<i64>) -> i64 {
