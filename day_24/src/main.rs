@@ -36,7 +36,7 @@ fn part_2() {
 }
 
 fn read_file() -> impl BufRead {
-    let path = std::env::current_dir().unwrap().join("day_24/input_test.txt");
+    let path = std::env::current_dir().unwrap().join("day_24/input.txt");
     println!("Opening file: {}", path.display());
     let file = File::open(path).unwrap();
     BufReader::new(file)
@@ -79,6 +79,10 @@ impl Hailstone {
     
     fn from_velocity(velocity: Vector3<i64>) -> Self {
         Self::new(Vector3::zeros(), velocity)
+    }
+    
+    fn add(&self, other: &Self) -> Self {
+        Hailstone::new(self.position + other.position, self.velocity + other.velocity)
     }
     
     fn position_at(&self, time: i64) -> Vector3<i64> {
@@ -242,25 +246,55 @@ impl Hailstorm {
     }
     
     fn calculate_intersection_body(&self) -> Hailstone {
-        let relative_hailstone = &self.hailstones[0];
-        let relative_space = self.clone_relative_to(relative_hailstone);
+        let reference_hailstone = &self.hailstones[0];
+        let relative_space = self.clone_relative_to(reference_hailstone);
 
         let target_hailstone = &relative_space.hailstones[1];
-        let test_hailstone = &relative_space.hailstones[1];
+        let test_hailstone = &relative_space.hailstones[2];
         
-        const LIMIT: i64 = 5;
-        for relative_time in 1..=LIMIT {
-            let target_position = target_hailstone.position_at(relative_time);
-            println!("Time {}: {:?}", relative_time, target_position);
-            
+        const LIMIT: i64 = 100_000;
+        for test_time in 1..=LIMIT {
+            let target_position = target_hailstone.position_at(test_time);
             let lowest_factor = lowest_factor_candidate(target_position);
+            println!("Time {}: {:?} (Lowest factor: {})", test_time, target_position, lowest_factor);
+            
             let possible_velocities = (1..=lowest_factor).flat_map(|i| try_divide(target_position, i));
             for velocity in possible_velocities {
-                println!("{:?}", velocity);
+                println!("Velocity: {:?}", velocity);
+                
+                let (relative_start, test_intercept) =
+                    match try_to_find_interception(test_hailstone, target_position, velocity, test_time) {
+                        Some(x) => x,
+                        None => continue,
+                    };
+
+                // println!("Test intercepted at: {}", test_intercept);
+                // println!("Relative: {}", relative_start);
+                
+                let absolute_start = relative_start.add(reference_hailstone);
+                return absolute_start;
             }
         }
         
-        Hailstone::new(Vector3::zeros(), Vector3::zeros())
+        panic!("Not found, try increasing the limit at your risk.");
+        
+        fn try_to_find_interception(
+            target: &Hailstone, from: Vector3<i64>, velocity: Vector3<i64>, time: i64,
+        ) -> Option<(Hailstone, i64)> {
+            // Assuming we already passed (0, 0)
+            let outgoing = Hailstone::new(from - (velocity * time), velocity);
+            match target.try_to_get_intersection_time(&outgoing) {
+                Some(t) => return Some((outgoing, t)),
+                None => {}
+            }
+
+            // Assuming we didn't pass (0, 0) yet
+            let incoming = Hailstone::new(from + (velocity * time), -velocity);
+            match target.try_to_get_intersection_time(&incoming) {
+                Some(t) => return Some((incoming, t)),
+                None => None,
+            }
+        }
     }
 }
 
